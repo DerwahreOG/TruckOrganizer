@@ -1,0 +1,25 @@
+name: Build Thunderstore package
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build and pack
+        run: ./pack.sh
+
+      - name: Upload Thunderstore zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: TruckOrganizer-thunderstore
+          path: dist/*.zip
+          if-no-files-found: error
