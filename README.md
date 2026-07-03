@@ -48,6 +48,55 @@ Terminal und Menü brauchen ihn alle Spieler.
 | `Terminal.PositionOffset` | `(1.35, 0, 0)` | Terminal-Position relativ zum Truck-Bildschirm |
 | `Terminal.RotationOffset` | `(0, 0, 0)` | Zusätzliche Terminal-Rotation (Euler) |
 
+## Testen
+
+1. **Mod bauen** (Windows, .NET SDK 8): `dotnet build TruckOrganizer/TruckOrganizer.csproj -c Release`
+   → DLL liegt unter `TruckOrganizer/bin/Release/netstandard2.1/TruckOrganizer.dll`.
+2. **BepInEx installieren** – am einfachsten über r2modman/Thunderstore Mod Manager
+   (Profil für R.E.P.O. mit `BepInExPack`), alternativ manuell BepInEx 5 (x64) ins Spielverzeichnis.
+3. **DLL installieren**: nach `BepInEx/plugins/` kopieren. Bei r2modman liegt das Profil unter
+   `%AppData%\r2modmanPlus-local\REPO\profiles\<Profil>\BepInEx\plugins\`.
+4. **Konsole aktivieren**: in `BepInEx/config/BepInEx.cfg` unter `[Logging.Console]`
+   `Enabled = true` setzen – dann siehst du alle Mod-Logs live.
+
+Testablauf (erst Singleplayer, dann Multiplayer):
+
+- Spiel starten → Log muss `TruckOrganizer v0.1.0 loaded.` zeigen.
+- Im Truck: Terminal neben dem Bildschirm mit Boot-Flackern. Position passt nicht?
+  → `Terminal.PositionOffset` / `RotationOffset` in der Config justieren.
+- Im Shop einkaufen → Log zeigt `Moved purchase '...' into storage`, die Items
+  dürfen **nicht** im Truck spawnen; im Terminal-Menü müssen sie auftauchen.
+- Level spielen, Extraction Point abgeben → Truhe spawnt in der Nähe
+  (Log: Spawn-Broadcast). Mit `E` öffnen.
+- „Nehmen": Item spawnt und landet in einem freien Slot. „Benutzen" bei Upgrades:
+  Effekt sofort spürbar (z. B. Stamina-Balken länger).
+- Speichern, Spiel beenden, Spielstand neu laden → Lagerinhalt muss wieder da sein
+  (Datei: `BepInEx/config/TruckOrganizer/<Spielstand>.txt`).
+- Multiplayer mit einem zweiten Spieler (beide mit Mod): Client sieht Truhe/Terminal,
+  gleicher Inhalt, Nehmen/Benutzen vom Client aus funktioniert und synchronisiert.
+
+Bei Problemen: `BepInEx/LogOutput.log` prüfen – alle Fehler des Mods sind dort geloggt.
+
+## Thunderstore-Release
+
+Die Paketstruktur liegt unter `thunderstore/` (Manifest, Icon, Changelog).
+
+```bash
+./pack.sh        # Linux/macOS
+# oder
+powershell -ExecutionPolicy Bypass -File pack.ps1   # Windows
+```
+
+Das Skript baut die Release-DLL und erzeugt `dist/TruckOrganizer-<version>.zip` mit
+`manifest.json`, `icon.png`, `README.md`, `CHANGELOG.md` und der DLL. Upload:
+
+1. Auf [thunderstore.io](https://thunderstore.io/c/repo/) einloggen (GitHub/Discord/Overwolf).
+2. Unter *Settings → Teams* ein Team anlegen – der Teamname wird der Namespace des Pakets.
+3. *Upload* → Community **R.E.P.O.** wählen, Zip hochladen, fertig.
+
+Für neue Versionen: `version_number` in `thunderstore/manifest.json` **und** `Version`
+in der `.csproj` erhöhen, `CHANGELOG.md` ergänzen, neu packen, hochladen.
+
 ## Entwicklung
 
 Voraussetzungen: .NET SDK 8.
