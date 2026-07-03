@@ -33,7 +33,7 @@ namespace TruckOrganizer.Core
 
         public static void HostAdd(string itemName, int amount = 1)
         {
-            if (!SemiFunc.IsMasterClientOrSingleplayer()) return;
+            if (!SafeGame.IsHost()) return;
             _storage.TryGetValue(itemName, out int current);
             _storage[itemName] = Mathf.Max(0, current + amount);
             if (_storage[itemName] == 0) _storage.Remove(itemName);
@@ -42,7 +42,7 @@ namespace TruckOrganizer.Core
 
         public static void HostHandleTakeRequest(string itemName, string requesterSteamId)
         {
-            if (!SemiFunc.IsMasterClientOrSingleplayer()) return;
+            if (!SafeGame.IsHost()) return;
             if (!_storage.TryGetValue(itemName, out int count) || count <= 0)
             {
                 Plugin.Log.LogWarning($"Take request for '{itemName}' denied (not in storage).");
@@ -70,7 +70,7 @@ namespace TruckOrganizer.Core
 
         public static void HostHandleUseRequest(string itemName, string requesterSteamId)
         {
-            if (!SemiFunc.IsMasterClientOrSingleplayer()) return;
+            if (!SafeGame.IsHost()) return;
             if (!_storage.TryGetValue(itemName, out int count) || count <= 0)
             {
                 Plugin.Log.LogWarning($"Use request for '{itemName}' denied (not in storage).");
@@ -194,7 +194,7 @@ namespace TruckOrganizer.Core
 
         public static void SaveToDisk()
         {
-            if (!SemiFunc.IsMasterClientOrSingleplayer()) return;
+            if (!SafeGame.IsHost()) return;
             try
             {
                 Directory.CreateDirectory(SaveDirectory);
@@ -221,7 +221,7 @@ namespace TruckOrganizer.Core
                     }
                 }
                 ContentsChanged?.Invoke();
-                if (SemiFunc.IsMasterClientOrSingleplayer())
+                if (SafeGame.IsHost())
                 {
                     NetworkEvents.BroadcastSnapshot(Serialize());
                 }

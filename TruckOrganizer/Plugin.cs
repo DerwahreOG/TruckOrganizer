@@ -1,3 +1,4 @@
+using System;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -14,7 +15,7 @@ namespace TruckOrganizer
     {
         public const string Guid = "truckorganizer.storage";
         public const string Name = "TruckOrganizer";
-        public const string Version = "0.1.0";
+        public const string Version = "0.1.1";
 
         public static Plugin Instance { get; private set; }
         internal static ManualLogSource Log;
@@ -26,8 +27,13 @@ namespace TruckOrganizer
         public static ConfigEntry<bool> PurchasesGoToStorage;
         public static ConfigEntry<KeyCode> InteractKey;
         public static ConfigEntry<float> InteractRange;
-        public static ConfigEntry<Vector3> TerminalOffset;
-        public static ConfigEntry<Vector3> TerminalEulerOffset;
+        public static ConfigEntry<float> TerminalOffsetX;
+        public static ConfigEntry<float> TerminalOffsetY;
+        public static ConfigEntry<float> TerminalOffsetZ;
+        public static ConfigEntry<float> TerminalRotationY;
+
+        public static Vector3 TerminalOffset =>
+            new Vector3(TerminalOffsetX.Value, TerminalOffsetY.Value, TerminalOffsetZ.Value);
 
         private Harmony _harmony;
 
@@ -48,13 +54,26 @@ namespace TruckOrganizer
                 "Key used to open the chest / terminal while looking at it.");
             InteractRange = Config.Bind("Input", "InteractRange", 2.6f,
                 "Maximum distance to interact with the chest / terminal.");
-            TerminalOffset = Config.Bind("Terminal", "PositionOffset", new Vector3(1.35f, 0.0f, 0.0f),
-                "Position offset of the terminal relative to the truck screen (local space of the screen).");
-            TerminalEulerOffset = Config.Bind("Terminal", "RotationOffset", Vector3.zero,
-                "Additional rotation (euler angles) applied to the terminal.");
+            TerminalOffsetX = Config.Bind("Terminal", "OffsetX", 1.35f,
+                "Terminal position offset (X, local space of the truck screen).");
+            TerminalOffsetY = Config.Bind("Terminal", "OffsetY", 0f,
+                "Terminal position offset (Y, local space of the truck screen).");
+            TerminalOffsetZ = Config.Bind("Terminal", "OffsetZ", 0f,
+                "Terminal position offset (Z, local space of the truck screen).");
+            TerminalRotationY = Config.Bind("Terminal", "RotationY", 0f,
+                "Additional Y rotation (degrees) applied to the terminal.");
 
-            _harmony = new Harmony(Guid);
-            _harmony.PatchAll(typeof(Plugin).Assembly);
+            Log.LogInfo("Config bound, applying Harmony patches...");
+            try
+            {
+                _harmony = new Harmony(Guid);
+                _harmony.PatchAll(typeof(Plugin).Assembly);
+                Log.LogInfo("Harmony patches applied.");
+            }
+            catch (Exception e)
+            {
+                Log.LogError($"Harmony patching failed (game version mismatch?): {e}");
+            }
 
             NetworkEvents.Initialize();
             AssetFactory.TryLoadBundle();
@@ -71,11 +90,19 @@ namespace TruckOrganizer
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            ChestSpawner.OnSceneLoaded();
-            StorageMenu.ForceClose();
-            if (TerminalEnabled.Value)
+            try
             {
-                StartCoroutine(TerminalSpawner.SpawnWhenReady());
+                Log.LogInfo($"Scene loaded: {scene.name}");
+                ChestSpawner.OnSceneLoaded();
+                StorageMenu.ForceClose();
+                if (TerminalEnabled.Value)
+                {
+                    StartCoroutine(TerminalSpawner.SpawnWhenReady());
+                }
+            }
+            catch (Exception e)
+            {
+                Log.LogError($"Scene hook failed: {e}");
             }
         }
 

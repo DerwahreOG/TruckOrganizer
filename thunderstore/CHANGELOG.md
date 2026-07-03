@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.1
+
+- Alle Harmony-Hooks abgesichert: Exceptions können Vanilla-Abläufe
+  (Speichern/Laden, Extraction-Point-Status) nicht mehr abbrechen.
+- SemiFunc-Aufrufe mit Photon-Fallbacks abgesichert (Hauptmenü/Ladephasen).
+- Käufe-Abgriff greift nur noch im Shop; Carts/Fahrzeuge bleiben Vanilla
+  (Start-Cart landet nicht mehr im Lager).
+- Terminal-Suche findet jetzt auch inaktive Truck-Bildschirme.
+- Terminal-Offset-Config auf einzelne Float-Werte umgestellt (OffsetX/Y/Z,
+  RotationY) für BepInEx-Kompatibilität.
+- Deutlich mehr Diagnose-Logging (Szenen, Spawns, übersprungene Käufe).
+
 ## 0.1.0
 
 - Erste Version.

@@ -98,7 +98,7 @@ namespace TruckOrganizer.Core
         {
             // Handle locally right away, then inform everyone else.
             Dispatch(payload);
-            if (SemiFunc.IsMultiplayer())
+            if (SafeGame.IsMultiplayer())
             {
                 PhotonNetwork.RaiseEvent(EventCode, payload,
                     new RaiseEventOptions { Receivers = ReceiverGroup.Others },
@@ -108,7 +108,7 @@ namespace TruckOrganizer.Core
 
         private static void SendToHost(object[] payload)
         {
-            if (SemiFunc.IsMasterClientOrSingleplayer())
+            if (SafeGame.IsHost())
             {
                 Dispatch(payload);
             }
@@ -132,7 +132,7 @@ namespace TruckOrganizer.Core
                     StorageService.ApplySnapshot((string)payload[1]);
                     break;
                 case Op.SnapshotRequest:
-                    if (SemiFunc.IsMasterClientOrSingleplayer())
+                    if (SafeGame.IsHost())
                     {
                         BroadcastSnapshot(StorageService.Serialize());
                     }

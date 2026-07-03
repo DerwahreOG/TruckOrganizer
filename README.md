@@ -45,8 +45,8 @@ Terminal und Menü brauchen ihn alle Spieler.
 | `PurchasesGoToStorage` | `true` | Shop-Käufe wandern ins Lager statt in den Truck |
 | `InteractKey` | `E` | Taste zum Öffnen von Truhe/Terminal |
 | `InteractRange` | `2.6` | Maximale Interaktionsdistanz |
-| `Terminal.PositionOffset` | `(1.35, 0, 0)` | Terminal-Position relativ zum Truck-Bildschirm |
-| `Terminal.RotationOffset` | `(0, 0, 0)` | Zusätzliche Terminal-Rotation (Euler) |
+| `Terminal.OffsetX/Y/Z` | `1.35 / 0 / 0` | Terminal-Position relativ zum Truck-Bildschirm |
+| `Terminal.RotationY` | `0` | Zusätzliche Terminal-Rotation um die Y-Achse (Grad) |
 
 ## Testen
 
@@ -61,7 +61,7 @@ Terminal und Menü brauchen ihn alle Spieler.
 
 Testablauf (erst Singleplayer, dann Multiplayer):
 
-- Spiel starten → Log muss `TruckOrganizer v0.1.0 loaded.` zeigen.
+- Spiel starten → Log muss `TruckOrganizer v0.1.1 loaded.` zeigen.
 - Im Truck: Terminal neben dem Bildschirm mit Boot-Flackern. Position passt nicht?
   → `Terminal.PositionOffset` / `RotationOffset` in der Config justieren.
 - Im Shop einkaufen → Log zeigt `Moved purchase '...' into storage`, die Items

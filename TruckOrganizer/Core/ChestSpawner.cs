@@ -28,9 +28,9 @@ namespace TruckOrganizer.Core
         public static void OnExtractionCompleted(ExtractionPoint point)
         {
             if (!Plugin.ChestEnabled.Value) return;
-            if (!SemiFunc.IsMasterClientOrSingleplayer()) return;
+            if (!SafeGame.IsHost()) return;
             if (point == null || point.isShop) return;
-            if (!SemiFunc.RunIsLevel()) return;
+            if (!SafeGame.RunIsLevel()) return;
             if (!_handledPoints.Add(point)) return;
 
             Vector3 origin = point.transform.position;
@@ -41,6 +41,7 @@ namespace TruckOrganizer.Core
                 rotation = Quaternion.LookRotation(-point.transform.forward, Vector3.up);
             }
 
+            Plugin.Log.LogInfo($"Extraction point completed; spawning chest at {position}.");
             NetworkEvents.BroadcastChestSpawn(position, rotation);
         }
 

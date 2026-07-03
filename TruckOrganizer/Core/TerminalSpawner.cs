@@ -25,23 +25,24 @@ namespace TruckOrganizer.Core
                 yield return null;
             }
 
-            if (!ShouldSpawnHere()) yield break;
+            if (!ShouldSpawnHere())
+            {
+                Plugin.Log.LogInfo("Terminal: scene is not a truck scene, skipping.");
+                yield break;
+            }
             if (_currentTerminal != null) yield break;
 
             Transform anchor = FindTruckScreen();
             if (anchor == null)
             {
-                Plugin.Log.LogInfo("No truck screen found in this scene; terminal not spawned.");
+                Plugin.Log.LogWarning("Terminal: no TruckScreenText found in this scene, cannot anchor.");
                 yield break;
             }
 
-            Vector3 offset = Plugin.TerminalOffset.Value;
-            Vector3 euler = Plugin.TerminalEulerOffset.Value;
-
             GameObject terminal = AssetFactory.CreateTerminal();
             terminal.transform.SetParent(anchor, false);
-            terminal.transform.localPosition = offset;
-            terminal.transform.localRotation = Quaternion.Euler(euler);
+            terminal.transform.localPosition = Plugin.TerminalOffset;
+            terminal.transform.localRotation = Quaternion.Euler(0f, Plugin.TerminalRotationY.Value, 0f);
 
             StorageContainer container = terminal.AddComponent<StorageContainer>();
             container.label = "Lager-Terminal";
@@ -50,6 +51,9 @@ namespace TruckOrganizer.Core
             if (screen != null) screen.PowerOn();
 
             _currentTerminal = terminal;
+            Plugin.Log.LogInfo(
+                $"Terminal spawned. Anchor '{anchor.name}' at {anchor.position}, terminal at {terminal.transform.position}. " +
+                "Position falsch? -> Terminal.OffsetX/Y/Z in der Config anpassen.");
         }
 
         private static bool LevelIsReady()
@@ -81,8 +85,11 @@ namespace TruckOrganizer.Core
 
         private static Transform FindTruckScreen()
         {
-            TruckScreenText screen = Object.FindObjectOfType<TruckScreenText>();
-            return screen != null ? screen.transform : null;
+            // Include inactive objects; the screen may be toggled off while
+            // the scene is still initializing.
+            TruckScreenText[] screens = Object.FindObjectsOfType<TruckScreenText>(true);
+            if (screens.Length > 0) return screens[0].transform;
+            return null;
         }
     }
 }

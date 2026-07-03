@@ -30,7 +30,7 @@ namespace TruckOrganizer.Core
             }
 
             GameObject spawned;
-            if (SemiFunc.IsMultiplayer())
+            if (SafeGame.IsMultiplayer())
             {
                 spawned = PhotonNetwork.InstantiateRoomObject(item.prefab.ResourcePath, position, rotation);
             }
