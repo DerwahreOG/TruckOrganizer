@@ -179,11 +179,28 @@ namespace TruckOrganizer.Core
 
         private static Transform FindTruckScreen()
         {
-            // Include inactive objects; the screen may be toggled off while
-            // the scene is still initializing.
+            // Anchor on the truck root when possible: it is the same object in
+            // every scene, so a placement stored once ("einmal festlegen")
+            // reproduces identically in lobby and levels. Fall back to the
+            // screen transform itself.
             TruckScreenText[] screens = Object.FindObjectsOfType<TruckScreenText>(true);
-            if (screens.Length > 0) return screens[0].transform;
-            return null;
+            if (screens.Length == 0) return null;
+
+            Transform screen = screens[0].transform;
+            Transform best = screen;
+            for (Transform p = screen; p != null; p = p.parent)
+            {
+                if (p.name.IndexOf("truck", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    best = p;
+                }
+            }
+
+            if (best != screen)
+            {
+                Plugin.Log.LogInfo($"Terminal anchor: using truck object '{best.name}' (via screen '{screen.name}').");
+            }
+            return best;
         }
     }
 }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.4
+
+- Komplett neues UI für Truhe und Terminal: dunkles Panel im CRT-Grün-Look
+  mit Kopfzeile, Abschnitten (Upgrades/Items), Zeilen-Hervorhebung,
+  Hover-Auswahl und gestylten Buttons.
+- Terminal-Anker auf das Truck-Wurzelobjekt umgestellt: die per F9
+  festgelegte Position gilt damit identisch in Lobby und Levels.
+  (Nach dem Update das Terminal bitte einmal neu per F9 platzieren.)
+
 ## 0.1.3
 
 - Menü-Bedienung repariert: Cursor wird jetzt zuverlässig entsperrt

@@ -6,10 +6,10 @@ using UnityEngine;
 namespace TruckOrganizer.Behaviours
 {
     /// <summary>
-    /// IMGUI menu shared by chest and terminal. Lists the storage content,
-    /// lets players take items into their inventory slots or consume player
-    /// upgrades directly. Fully keyboard-operable (arrow keys + Enter/U) in
-    /// case the game fights over the mouse cursor.
+    /// Storage UI shared by chest and terminal, drawn in a dark CRT-green
+    /// theme. Lists the storage content, lets players take items into their
+    /// inventory slots or consume player upgrades directly. Fully keyboard
+    /// operable (arrow keys + Enter/U) in addition to the mouse.
     /// </summary>
     public class StorageMenu : MonoBehaviour
     {
@@ -20,8 +20,6 @@ namespace TruckOrganizer.Behaviours
         private static Vector2 _scroll;
         private static int _selected;
         private static int _closedFrame = -1;
-
-        private const int WindowId = 0x7402;
 
         private struct Row
         {
@@ -167,15 +165,13 @@ namespace TruckOrganizer.Behaviours
 
         private void OnGUI()
         {
+            UITheme.Ensure();
+
             if (IsOpen)
             {
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
-
-                float width = 520f;
-                float height = 440f;
-                var rect = new Rect((Screen.width - width) / 2f, (Screen.height - height) / 2f, width, height);
-                GUILayout.Window(WindowId, rect, DrawWindow, _source != null ? _source.label : "Lager");
+                DrawPanel();
             }
             else if (HintSource != null)
             {
@@ -185,78 +181,108 @@ namespace TruckOrganizer.Behaviours
 
         private static void DrawHint()
         {
-            string text = $"[{Plugin.InteractKey.Value}] {HintSource.label} öffnen";
-            var size = new Vector2(300f, 28f);
+            string text = $"[{Plugin.InteractKey.Value}]  {HintSource.label} öffnen";
+            var size = new Vector2(320f, 34f);
             var rect = new Rect((Screen.width - size.x) / 2f, Screen.height * 0.72f, size.x, size.y);
-
-            GUI.color = new Color(0f, 0f, 0f, 0.6f);
-            GUI.Box(rect, GUIContent.none);
-            GUI.color = new Color(0.6f, 1f, 0.7f);
-            GUI.Label(rect, text, CenteredLabel());
-            GUI.color = Color.white;
+            GUI.Label(rect, text, UITheme.PromptBox);
         }
 
-        private static void DrawWindow(int id)
+        private static void DrawPanel()
         {
             List<Row> rows = BuildRows();
             _selected = rows.Count == 0 ? 0 : Mathf.Clamp(_selected, 0, rows.Count - 1);
+            int totalItems = rows.Sum(r => r.Count);
 
-            GUILayout.Label(
-                "Steuerung: ↑/↓ wählen, Enter = Nehmen, U = Upgrade benutzen, " +
-                $"{Plugin.InteractKey.Value}/Tab/Esc = schließen", SmallLabel());
-            GUILayout.Space(4f);
+            float width = 600f;
+            float height = 500f;
+            var panel = new Rect((Screen.width - width) / 2f, (Screen.height - height) / 2f, width, height);
 
+            UITheme.DrawPanelFrame(panel);
+
+            // --- Header ---
+            var header = new Rect(panel.x + 16f, panel.y, panel.width - 32f, 44f);
+            GUI.Label(header, "▚ " + (_source != null ? _source.label.ToUpperInvariant() : "LAGER"), UITheme.Title);
+            GUI.Label(header, $"{totalItems} Gegenstände eingelagert", UITheme.TitleRight);
+
+            // --- Content ---
+            var content = new Rect(panel.x + 12f, panel.y + 52f, panel.width - 24f, panel.height - 52f - 78f);
+            GUILayout.BeginArea(content);
             _scroll = GUILayout.BeginScrollView(_scroll);
 
             if (rows.Count == 0)
             {
-                GUILayout.Space(12f);
-                GUILayout.Label("Das Lager ist leer.", CenteredLabel());
+                GUILayout.FlexibleSpace();
+                GUILayout.Label("— DAS LAGER IST LEER —", UITheme.Empty);
+                GUILayout.Label("Im Shop gekaufte Items landen automatisch hier.", UITheme.Hint);
+                GUILayout.FlexibleSpace();
             }
-
-            bool headerDrawn = false;
-            for (int i = 0; i < rows.Count; i++)
+            else
             {
-                if (i == 0 && rows[i].IsUpgrade)
+                bool upgradeHeader = false;
+                bool itemHeader = false;
+                for (int i = 0; i < rows.Count; i++)
                 {
-                    GUILayout.Label("<b>Upgrades</b>", RichLabel());
+                    if (rows[i].IsUpgrade && !upgradeHeader)
+                    {
+                        GUILayout.Space(2f);
+                        GUILayout.Label("── UPGRADES ──", UITheme.Section);
+                        upgradeHeader = true;
+                    }
+                    if (!rows[i].IsUpgrade && !itemHeader)
+                    {
+                        if (upgradeHeader) GUILayout.Space(10f);
+                        GUILayout.Label("── ITEMS ──", UITheme.Section);
+                        itemHeader = true;
+                    }
+                    DrawRow(rows[i], i);
                 }
-                if (!rows[i].IsUpgrade && !headerDrawn)
-                {
-                    if (i > 0) GUILayout.Space(8f);
-                    GUILayout.Label("<b>Items</b>", RichLabel());
-                    headerDrawn = true;
-                }
-                DrawRow(rows[i], i);
             }
 
             GUILayout.EndScrollView();
+            GUILayout.EndArea();
 
-            GUILayout.Space(6f);
-            if (GUILayout.Button("Schließen"))
+            // --- Footer ---
+            var footer = new Rect(panel.x + 12f, panel.yMax - 72f, panel.width - 24f, 64f);
+            GUILayout.BeginArea(footer);
+            GUILayout.Label(
+                "↑/↓ wählen   ·   Enter = Nehmen   ·   U = Upgrade benutzen   ·   " +
+                $"{Plugin.InteractKey.Value}/Tab = schließen", UITheme.Hint);
+            GUILayout.Space(4f);
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("SCHLIESSEN", UITheme.Button, GUILayout.Width(140f), GUILayout.Height(28f)))
             {
                 ForceClose();
             }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+            GUILayout.EndArea();
         }
 
         private static void DrawRow(Row row, int index)
         {
-            GUILayout.BeginHorizontal();
+            GUIStyle rowStyle = index == _selected
+                ? UITheme.RowSel
+                : (index % 2 == 0 ? UITheme.Row : UITheme.RowAlt);
 
-            string marker = index == _selected ? "► " : "    ";
-            GUILayout.Label($"{marker}{StorageService.DisplayName(row.ItemName)}  x{row.Count}",
-                GUILayout.ExpandWidth(true));
+            GUILayout.BeginHorizontal(rowStyle, GUILayout.Height(32f));
+
+            GUILayout.Label(StorageService.DisplayName(row.ItemName), UITheme.RowLabel,
+                GUILayout.ExpandWidth(true), GUILayout.Height(24f));
+            GUILayout.Label($"x{row.Count}", UITheme.RowCount, GUILayout.Width(44f), GUILayout.Height(24f));
+            GUILayout.Space(8f);
 
             if (row.IsUpgrade)
             {
-                if (GUILayout.Button("Benutzen [U]", GUILayout.Width(110f)))
+                if (GUILayout.Button("BENUTZEN", UITheme.Button, GUILayout.Width(96f), GUILayout.Height(24f)))
                 {
                     _selected = index;
                     StorageService.RequestUse(row.ItemName);
                 }
+                GUILayout.Space(4f);
             }
 
-            if (GUILayout.Button("Nehmen [Enter]", GUILayout.Width(120f)))
+            if (GUILayout.Button("NEHMEN", UITheme.Button, GUILayout.Width(96f), GUILayout.Height(24f)))
             {
                 _selected = index;
                 StorageService.RequestTake(row.ItemName);
@@ -264,35 +290,15 @@ namespace TruckOrganizer.Behaviours
             }
 
             GUILayout.EndHorizontal();
-        }
 
-        private static GUIStyle _centeredLabel;
-        private static GUIStyle _richLabel;
-        private static GUIStyle _smallLabel;
-
-        private static GUIStyle CenteredLabel()
-        {
-            return _centeredLabel ??= new GUIStyle(GUI.skin.label)
+            // Mouse hover moves the keyboard selection along.
+            if (Event.current.type == EventType.Repaint &&
+                GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition))
             {
-                alignment = TextAnchor.MiddleCenter,
-            };
-        }
+                _selected = index;
+            }
 
-        private static GUIStyle RichLabel()
-        {
-            return _richLabel ??= new GUIStyle(GUI.skin.label)
-            {
-                richText = true,
-            };
-        }
-
-        private static GUIStyle SmallLabel()
-        {
-            return _smallLabel ??= new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 11,
-                wordWrap = true,
-            };
+            GUILayout.Space(2f);
         }
     }
 }
