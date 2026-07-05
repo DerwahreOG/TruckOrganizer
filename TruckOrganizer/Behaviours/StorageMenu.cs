@@ -20,6 +20,7 @@ namespace TruckOrganizer.Behaviours
         private static Vector2 _scroll;
         private static int _selected;
         private static int _closedFrame = -1;
+        private static float _relockUntil = -1f;
 
         private struct Row
         {
@@ -41,7 +42,14 @@ namespace TruckOrganizer.Behaviours
 
         public static void ForceClose()
         {
-            if (IsOpen) _closedFrame = Time.frameCount;
+            if (IsOpen)
+            {
+                _closedFrame = Time.frameCount;
+                // Hand the cursor back to the game: force-lock briefly so the
+                // aim camera works again even if the game does not re-lock on
+                // its own.
+                _relockUntil = Time.time + 0.4f;
+            }
             IsOpen = false;
             _source = null;
             HintSource = null;
@@ -100,9 +108,21 @@ namespace TruckOrganizer.Behaviours
         private void LateUpdate()
         {
             // Runs after the game's own cursor handling; last writer wins.
-            if (!IsOpen) return;
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
+            if (IsOpen)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
+            else if (Time.time < _relockUntil)
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+                try
+                {
+                    if (CursorManager.instance != null) CursorManager.instance.unlockTimer = 0f;
+                }
+                catch { /* manager not available */ }
+            }
         }
 
         private static void HandleKeyboard()
@@ -200,8 +220,8 @@ namespace TruckOrganizer.Behaviours
             UITheme.DrawPanelFrame(panel);
 
             // --- Header ---
-            var header = new Rect(panel.x + 16f, panel.y, panel.width - 32f, 44f);
-            GUI.Label(header, "▚ " + (_source != null ? _source.label.ToUpperInvariant() : "LAGER"), UITheme.Title);
+            var header = new Rect(panel.x + 20f, panel.y + 6f, panel.width - 40f, 40f);
+            GUI.Label(header, _source != null ? _source.label.ToUpperInvariant() : "LAGER", UITheme.Title);
             GUI.Label(header, $"{totalItems} Gegenstände eingelagert", UITheme.TitleRight);
 
             // --- Content ---

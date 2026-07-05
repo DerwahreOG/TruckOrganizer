@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.5
+
+- Maus wird nach dem Schließen des Menüs wieder korrekt gesperrt
+  (kurzes erzwungenes Re-Locking nach dem Schließen).
+- Terminal montiert sich jetzt automatisch an der nächsten Wand rund um
+  den Truck-Bildschirm (Raycast), bis einmal per F9 eine eigene Position
+  gespeichert wurde – kein unsichtbares/versetztes Terminal mehr.
+- UI neu gestaltet im Spiel-Look: dunkles Panel mit abgerundeten Ecken,
+  orangefarbene Akzente, klare weiße Schrift.
+
 ## 0.1.4
 
 - Komplett neues UI für Truhe und Terminal: dunkles Panel im CRT-Grün-Look

@@ -15,7 +15,7 @@ namespace TruckOrganizer
     {
         public const string Guid = "truckorganizer.storage";
         public const string Name = "TruckOrganizer";
-        public const string Version = "0.1.4";
+        public const string Version = "0.1.5";
 
         public static Plugin Instance { get; private set; }
         public static bool PatchesApplied { get; private set; }
@@ -34,6 +34,7 @@ namespace TruckOrganizer
         public static ConfigEntry<float> TerminalOffsetY;
         public static ConfigEntry<float> TerminalOffsetZ;
         public static ConfigEntry<float> TerminalRotationY;
+        public static ConfigEntry<bool> TerminalPlacementSaved;
 
         public static Vector3 TerminalOffset =>
             new Vector3(TerminalOffsetX.Value, TerminalOffsetY.Value, TerminalOffsetZ.Value);
@@ -69,6 +70,9 @@ namespace TruckOrganizer
                 "Terminal position offset (Z, local space of the truck screen).");
             TerminalRotationY = Config.Bind("Terminal", "RotationY", 0f,
                 "Additional Y rotation (degrees) applied to the terminal.");
+            TerminalPlacementSaved = Config.Bind("Terminal", "PlacementSaved", false,
+                "Set automatically once the terminal has been placed with the placement key. " +
+                "While false, the terminal mounts itself onto the nearest wall around the truck screen.");
 
             Log.LogInfo("Config bound, applying Harmony patches...");
             try

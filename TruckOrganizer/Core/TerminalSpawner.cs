@@ -5,11 +5,11 @@ using UnityEngine;
 namespace TruckOrganizer.Core
 {
     /// <summary>
-    /// Spawns the wall terminal inside the truck. The terminal is anchored
-    /// relative to the truck screen and created locally on every client.
-    /// Players can re-place it at any wall they aim at (default F9); the new
-    /// position is stored in the config relative to the anchor, so it is
-    /// restored in every scene and session.
+    /// Spawns the wall terminal inside the truck, locally on every client.
+    /// Until the player saves a position (default F9), the terminal mounts
+    /// itself automatically onto the nearest wall around the truck screen.
+    /// A saved position is stored relative to the truck root, so it is
+    /// reproduced in every scene and session.
     /// </summary>
     public static class TerminalSpawner
     {
@@ -34,8 +34,8 @@ namespace TruckOrganizer.Core
             }
             if (_currentTerminal != null) yield break;
 
-            Transform anchor = FindTruckScreen();
-            if (anchor == null)
+            Transform screen = FindScreenTransform();
+            if (screen == null)
             {
                 Plugin.Log.LogWarning("Terminal: no TruckScreenText found in this scene, cannot anchor.");
                 yield break;
@@ -43,9 +43,32 @@ namespace TruckOrganizer.Core
 
             try
             {
-                Quaternion facing = AnchorFacing(anchor) * Quaternion.Euler(0f, Plugin.TerminalRotationY.Value, 0f);
-                Vector3 position = anchor.position + facing * Plugin.TerminalOffset;
-                CreateOrMove(position, facing);
+                Vector3 position;
+                Quaternion rotation;
+
+                if (Plugin.TerminalPlacementSaved.Value)
+                {
+                    Transform anchor = TruckRootFrom(screen);
+                    Quaternion facing = AnchorFacing(anchor) * Quaternion.Euler(0f, Plugin.TerminalRotationY.Value, 0f);
+                    position = anchor.position + facing * Plugin.TerminalOffset;
+                    rotation = facing;
+                    Plugin.Log.LogInfo($"Terminal: using saved placement relative to '{anchor.name}'.");
+                }
+                else if (TryAutoWallMount(screen, out position, out rotation))
+                {
+                    Plugin.Log.LogInfo("Terminal: auto-mounted on the nearest wall. " +
+                        $"Verschieben: auf eine Wand zielen und {Plugin.PlaceTerminalKey.Value} drücken.");
+                }
+                else
+                {
+                    // No wall found; place next to the screen as last resort.
+                    Quaternion facing = AnchorFacing(screen);
+                    position = screen.position + facing * new Vector3(1.2f, 0f, 0f);
+                    rotation = facing;
+                    Plugin.Log.LogWarning("Terminal: no wall hit, using fallback position next to the screen.");
+                }
+
+                CreateOrMove(position, rotation);
             }
             catch (System.Exception e)
             {
@@ -53,15 +76,13 @@ namespace TruckOrganizer.Core
                 yield break;
             }
 
-            Plugin.Log.LogInfo(
-                $"Terminal spawned. Anchor '{anchor.name}' at {anchor.position}, " +
-                $"terminal at {_currentTerminal.transform.position}. " +
-                $"Position falsch? -> Im Spiel auf eine Wand zielen und {Plugin.PlaceTerminalKey.Value} drücken.");
+            Plugin.Log.LogInfo($"Terminal spawned at {_currentTerminal.transform.position} " +
+                $"(screen '{screen.name}' at {screen.position}).");
         }
 
         /// <summary>
         /// Places (or moves) the terminal onto the surface the player is
-        /// aiming at and persists the placement relative to the truck screen.
+        /// aiming at and persists the placement relative to the truck root.
         /// </summary>
         public static void PlaceAtAim()
         {
@@ -97,6 +118,55 @@ namespace TruckOrganizer.Core
             Plugin.Log.LogInfo($"Terminal placed at {position} (aim placement).");
         }
 
+        // ------------------------------------------------------------------
+        // Placement helpers
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Casts rays from a point at chest height near the truck screen and
+        /// mounts the terminal on the first wall hit.
+        /// </summary>
+        private static bool TryAutoWallMount(Transform screen, out Vector3 position, out Quaternion rotation)
+        {
+            position = default;
+            rotation = default;
+
+            Vector3 origin = screen.position;
+
+            // Find the truck floor below the screen for a sane mounting height.
+            float floorY = origin.y - 1.2f;
+            if (Physics.Raycast(origin, Vector3.down, out RaycastHit floorHit, 5f,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            {
+                floorY = floorHit.point.y;
+            }
+
+            var eye = new Vector3(origin.x, floorY + 1.35f, origin.z);
+            Vector3 forward = AnchorFacing(screen) * Vector3.forward;
+
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 dir = Quaternion.Euler(0f, i * 45f, 0f) * forward;
+                if (!Physics.Raycast(eye, dir, out RaycastHit hit, 4f,
+                        Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                {
+                    continue;
+                }
+                if (Mathf.Abs(hit.normal.y) > 0.4f) continue; // not a wall
+                if (hit.distance < 0.4f) continue;            // inside geometry
+
+                Vector3 normal = hit.normal;
+                normal.y = 0f;
+                normal.Normalize();
+
+                position = hit.point + normal * 0.08f;
+                rotation = Quaternion.LookRotation(-normal, Vector3.up);
+                return true;
+            }
+
+            return false;
+        }
+
         private static void CreateOrMove(Vector3 position, Quaternion rotation)
         {
             if (_currentTerminal == null)
@@ -119,17 +189,18 @@ namespace TruckOrganizer.Core
         }
 
         /// <summary>
-        /// Stores the placement relative to the truck screen anchor in the
-        /// config, inverting the math used by SpawnWhenReady.
+        /// Stores the placement relative to the truck root in the config,
+        /// inverting the math used by SpawnWhenReady.
         /// </summary>
         private static void PersistPlacement(Vector3 position, Quaternion rotation)
         {
-            Transform anchor = FindTruckScreen();
-            if (anchor == null)
+            Transform screen = FindScreenTransform();
+            if (screen == null)
             {
                 Plugin.Log.LogInfo("Terminal placement: no anchor in scene; placement not persisted.");
                 return;
             }
+            Transform anchor = TruckRootFrom(screen);
 
             Quaternion anchorFacing = AnchorFacing(anchor);
             float rotY = Mathf.DeltaAngle(anchorFacing.eulerAngles.y, rotation.eulerAngles.y);
@@ -139,7 +210,9 @@ namespace TruckOrganizer.Core
             Plugin.TerminalOffsetX.Value = offset.x;
             Plugin.TerminalOffsetY.Value = offset.y;
             Plugin.TerminalOffsetZ.Value = offset.z;
-            Plugin.Log.LogInfo($"Terminal placement persisted (offset {offset}, rotY {rotY:0.0}).");
+            Plugin.TerminalPlacementSaved.Value = true;
+            Plugin.Log.LogInfo(
+                $"Terminal placement persisted relative to '{anchor.name}' (offset {offset}, rotY {rotY:0.0}).");
         }
 
         private static Quaternion AnchorFacing(Transform anchor)
@@ -177,16 +250,18 @@ namespace TruckOrganizer.Core
             }
         }
 
-        private static Transform FindTruckScreen()
+        private static Transform FindScreenTransform()
         {
-            // Anchor on the truck root when possible: it is the same object in
-            // every scene, so a placement stored once ("einmal festlegen")
-            // reproduces identically in lobby and levels. Fall back to the
-            // screen transform itself.
+            // Include inactive objects; the screen may be toggled off while
+            // the scene is still initializing.
             TruckScreenText[] screens = Object.FindObjectsOfType<TruckScreenText>(true);
-            if (screens.Length == 0) return null;
+            return screens.Length > 0 ? screens[0].transform : null;
+        }
 
-            Transform screen = screens[0].transform;
+        /// <summary>Highest ancestor whose name contains "truck"; the same
+        /// object in every scene, so placements reproduce identically.</summary>
+        private static Transform TruckRootFrom(Transform screen)
+        {
             Transform best = screen;
             for (Transform p = screen; p != null; p = p.parent)
             {
@@ -194,11 +269,6 @@ namespace TruckOrganizer.Core
                 {
                     best = p;
                 }
-            }
-
-            if (best != screen)
-            {
-                Plugin.Log.LogInfo($"Terminal anchor: using truck object '{best.name}' (via screen '{screen.name}').");
             }
             return best;
         }
