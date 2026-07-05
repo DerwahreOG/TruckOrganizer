@@ -4,35 +4,39 @@ Der Mod funktioniert ohne zusätzliche Dateien mit eingebauten Platzhalter-Model
 Sobald ein AssetBundle namens `truckorganizer` neben der `TruckOrganizer.dll` in
 `BepInEx/plugins/` liegt, werden stattdessen die eigenen Modelle verwendet.
 
-> **Hinweis:** Die FBX-/Blend-Dateien aus der Aufgabenbeschreibung sind nicht im
-> Repository angekommen. Sie müssen direkt ins Repo gelegt werden (z. B. unter
-> `assets/models/`), damit sie hier versioniert werden können. Das AssetBundle
-> selbst muss in Unity gebaut werden – das geht nicht automatisiert ohne
-> Unity-Installation.
+> **Stand:** Die Modelle liegen unter `assets/models/` im Repo:
+> `REPO_Truhe.fbx` (Truhe) und `REPO_WallTerminal.fbx` (Terminal, mit
+> `Screen_Emissive`-Material für das Display). Das AssetBundle selbst muss
+> einmalig in Unity gebaut werden – siehe unten.
 
 ## Unity-Projekt aufsetzen
 
-1. Unity **2022.3.21f1** installieren (gleiche Version wie R.E.P.O.).
+1. Unity **2022.3.21f1** installieren (gleiche Version wie R.E.P.O.), am
+   einfachsten über Unity Hub.
 2. Neues 3D-Projekt (Built-in Render Pipeline) anlegen.
-3. Die FBX-Dateien (`chest.fbx`, `terminal.fbx`) in `Assets/Models/` importieren.
+3. `assets/models/REPO_Truhe.fbx` und `assets/models/REPO_WallTerminal.fbx`
+   aus diesem Repo in den Unity-Ordner `Assets/Models/` ziehen.
 
 ## Prefabs vorbereiten
 
 Es gelten folgende Namenskonventionen, die `AssetFactory` beim Laden erwartet:
 
-### `ChestPrefab`
+### `ChestPrefab` (aus `REPO_Truhe.fbx`)
 
-- Wurzelobjekt heißt beliebig, das Prefab-Asset heißt **`ChestPrefab`**.
-- Realistische Größe: ca. 1,0 × 0,7 × 0,65 m, Pivot am Boden.
+- FBX in die Szene ziehen, Skalierung prüfen (Zielgröße ca. 1,0 × 0,7 × 0,65 m,
+  Pivot am Boden), dann als Prefab-Asset mit dem Namen **`ChestPrefab`** speichern.
 - Ein `BoxCollider` auf der Wurzel (kein Trigger), damit Spieler nicht durchlaufen.
 
-### `TerminalPrefab`
+### `TerminalPrefab` (aus `REPO_WallTerminal.fbx`)
 
-- Prefab-Asset heißt **`TerminalPrefab`**, Pivot in der Mitte der Rückwand
-  (die Rückseite liegt an der Truck-Wand an).
-- Der Bildschirm-Renderer muss **`Screen`** im Namen tragen und ein Material mit
-  Emission-Slot verwenden (Standard-Shader). Die Boot-Animation setzt
-  `_EmissionColor` zur Laufzeit.
+- FBX in die Szene ziehen, als Prefab-Asset **`TerminalPrefab`** speichern.
+  Pivot in der Mitte der Rückwand; die Rückseite (+Z) liegt an der Truck-Wand an,
+  das Display zeigt nach −Z.
+- Das Display-Material **`Screen_Emissive`** aus dem FBX extrahieren
+  (FBX auswählen → *Materials* → *Extract Materials*) und sicherstellen, dass es
+  den Standard-Shader mit Emission-Slot nutzt. Der Mod findet es automatisch
+  (Renderer- oder Materialname muss „Screen" enthalten) und animiert
+  `_EmissionColor` beim Booten.
 - Optional: ein deaktiviertes `Point Light` als Kind (beliebiger Name), leicht vor
   dem Display platziert. Es wird von der Boot-Animation eingeschaltet.
 - Das `TerminalScreen`-Skript **nicht** im Unity-Projekt anlegen – der Mod fügt

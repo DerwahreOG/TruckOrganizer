@@ -114,9 +114,11 @@ namespace TruckOrganizer.Core
 
             TerminalScreen screen = terminal.AddComponent<TerminalScreen>();
 
-            // Convention for bundle prefabs: a renderer named "Screen" holds
-            // the emissive display material, an optional disabled light named
-            // "ScreenLight" sits in front of it.
+            // Convention for bundle prefabs: the display material is found via
+            // a renderer named "Screen" OR a material whose name contains
+            // "Screen" (e.g. the "Screen_Emissive" material from the FBX).
+            // An optional disabled light in front of the display is used for
+            // the boot glow.
             foreach (Renderer renderer in terminal.GetComponentsInChildren<Renderer>(true))
             {
                 if (renderer.name.Contains("Screen"))
@@ -124,6 +126,15 @@ namespace TruckOrganizer.Core
                     screen.screenMat = renderer.material;
                     break;
                 }
+                foreach (Material mat in renderer.materials)
+                {
+                    if (mat != null && mat.name.Contains("Screen"))
+                    {
+                        screen.screenMat = mat;
+                        break;
+                    }
+                }
+                if (screen.screenMat != null) break;
             }
             screen.screenLight = terminal.GetComponentInChildren<Light>(true);
         }
