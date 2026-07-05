@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2
+
+- Terminal wird nicht mehr unter den Truck-Bildschirm geparentet
+  (skalierte Displays machten es unsichtbar klein); Platzierung jetzt in
+  Welt-Koordinaten vor der Wand.
+- Truhen-/Terminal-Erzeugung komplett abgesichert und mit Logging versehen.
+- Neue Debug-Taste (Standard `F8`): schreibt einen Diagnose-Report ins
+  BepInEx-Log und spawnt eine Debug-Truhe direkt vor dem Spieler.
+
 ## 0.1.1
 
 - Alle Harmony-Hooks abgesichert: Exceptions können Vanilla-Abläufe

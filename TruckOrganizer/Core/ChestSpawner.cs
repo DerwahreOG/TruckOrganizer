@@ -48,11 +48,19 @@ namespace TruckOrganizer.Core
         /// <summary>Creates the chest locally (runs on every client).</summary>
         public static void SpawnLocalChest(Vector3 position, Quaternion rotation)
         {
-            GameObject chest = AssetFactory.CreateChest();
-            chest.transform.SetPositionAndRotation(position, rotation);
+            try
+            {
+                GameObject chest = AssetFactory.CreateChest();
+                chest.transform.SetPositionAndRotation(position, rotation);
 
-            StorageContainer container = chest.AddComponent<StorageContainer>();
-            container.label = "Vorratstruhe";
+                StorageContainer container = chest.AddComponent<StorageContainer>();
+                container.label = "Vorratstruhe";
+                Plugin.Log.LogInfo($"Chest created at {position}.");
+            }
+            catch (System.Exception e)
+            {
+                Plugin.Log.LogError($"Chest creation failed: {e}");
+            }
         }
 
         // ------------------------------------------------------------------

@@ -41,6 +41,18 @@ namespace TruckOrganizer.Behaviours
 
         private void Update()
         {
+            if (Input.GetKeyDown(Plugin.DebugKey.Value))
+            {
+                try
+                {
+                    Core.Diagnostics.DumpAndSpawnDebugChest();
+                }
+                catch (System.Exception e)
+                {
+                    Plugin.Log.LogError($"Diagnostics failed: {e}");
+                }
+            }
+
             if (!IsOpen) return;
 
             if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Tab))

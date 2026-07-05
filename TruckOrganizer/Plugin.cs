@@ -15,9 +15,10 @@ namespace TruckOrganizer
     {
         public const string Guid = "truckorganizer.storage";
         public const string Name = "TruckOrganizer";
-        public const string Version = "0.1.1";
+        public const string Version = "0.1.2";
 
         public static Plugin Instance { get; private set; }
+        public static bool PatchesApplied { get; private set; }
         internal static ManualLogSource Log;
 
         // --- Config ---
@@ -26,6 +27,7 @@ namespace TruckOrganizer
         public static ConfigEntry<bool> TerminalInLevels;
         public static ConfigEntry<bool> PurchasesGoToStorage;
         public static ConfigEntry<KeyCode> InteractKey;
+        public static ConfigEntry<KeyCode> DebugKey;
         public static ConfigEntry<float> InteractRange;
         public static ConfigEntry<float> TerminalOffsetX;
         public static ConfigEntry<float> TerminalOffsetY;
@@ -52,6 +54,8 @@ namespace TruckOrganizer
                 "Items bought in the shop are moved into the shared storage instead of spawning in the truck.");
             InteractKey = Config.Bind("Input", "InteractKey", KeyCode.E,
                 "Key used to open the chest / terminal while looking at it.");
+            DebugKey = Config.Bind("Input", "DebugKey", KeyCode.F8,
+                "Dumps mod diagnostics into the BepInEx log and spawns a debug chest in front of the player.");
             InteractRange = Config.Bind("Input", "InteractRange", 2.6f,
                 "Maximum distance to interact with the chest / terminal.");
             TerminalOffsetX = Config.Bind("Terminal", "OffsetX", 1.35f,
@@ -68,6 +72,7 @@ namespace TruckOrganizer
             {
                 _harmony = new Harmony(Guid);
                 _harmony.PatchAll(typeof(Plugin).Assembly);
+                PatchesApplied = true;
                 Log.LogInfo("Harmony patches applied.");
             }
             catch (Exception e)

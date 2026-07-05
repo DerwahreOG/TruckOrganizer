@@ -61,7 +61,7 @@ Terminal und Menü brauchen ihn alle Spieler.
 
 Testablauf (erst Singleplayer, dann Multiplayer):
 
-- Spiel starten → Log muss `TruckOrganizer v0.1.1 loaded.` zeigen.
+- Spiel starten → Log muss `TruckOrganizer v0.1.2 loaded.` zeigen.
 - Im Truck: Terminal neben dem Bildschirm mit Boot-Flackern. Position passt nicht?
   → `Terminal.PositionOffset` / `RotationOffset` in der Config justieren.
 - Im Shop einkaufen → Log zeigt `Moved purchase '...' into storage`, die Items
@@ -76,6 +76,9 @@ Testablauf (erst Singleplayer, dann Multiplayer):
   gleicher Inhalt, Nehmen/Benutzen vom Client aus funktioniert und synchronisiert.
 
 Bei Problemen: `BepInEx/LogOutput.log` prüfen – alle Fehler des Mods sind dort geloggt.
+Zusätzlich gibt es eine Debug-Taste (Standard `F8`): Sie schreibt einen Diagnose-Report
+ins Log (Szene, Spielstatus, gefundene Truck-Bildschirme, Lagerinhalt) und spawnt eine
+Debug-Truhe direkt vor dem Spieler, über die das Lager immer erreichbar ist.
 
 ## Thunderstore-Release
 

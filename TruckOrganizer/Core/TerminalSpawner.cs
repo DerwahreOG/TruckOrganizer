@@ -39,20 +39,35 @@ namespace TruckOrganizer.Core
                 yield break;
             }
 
-            GameObject terminal = AssetFactory.CreateTerminal();
-            terminal.transform.SetParent(anchor, false);
-            terminal.transform.localPosition = Plugin.TerminalOffset;
-            terminal.transform.localRotation = Quaternion.Euler(0f, Plugin.TerminalRotationY.Value, 0f);
+            GameObject terminal;
+            try
+            {
+                terminal = AssetFactory.CreateTerminal();
 
-            StorageContainer container = terminal.AddComponent<StorageContainer>();
-            container.label = "Lager-Terminal";
+                // Do NOT parent under the screen: text displays often carry a
+                // tiny transform scale which would shrink the terminal into
+                // invisibility. Place it in world space instead.
+                Quaternion facing = Quaternion.LookRotation(FlatForward(anchor), Vector3.up)
+                    * Quaternion.Euler(0f, Plugin.TerminalRotationY.Value, 0f);
+                Vector3 position = anchor.position + facing * Plugin.TerminalOffset;
+                terminal.transform.SetPositionAndRotation(position, facing);
 
-            TerminalScreen screen = terminal.GetComponentInChildren<TerminalScreen>();
-            if (screen != null) screen.PowerOn();
+                StorageContainer container = terminal.AddComponent<StorageContainer>();
+                container.label = "Lager-Terminal";
+
+                TerminalScreen screen = terminal.GetComponentInChildren<TerminalScreen>();
+                if (screen != null) screen.PowerOn();
+            }
+            catch (System.Exception e)
+            {
+                Plugin.Log.LogError($"Terminal creation failed: {e}");
+                yield break;
+            }
 
             _currentTerminal = terminal;
             Plugin.Log.LogInfo(
-                $"Terminal spawned. Anchor '{anchor.name}' at {anchor.position}, terminal at {terminal.transform.position}. " +
+                $"Terminal spawned. Anchor '{anchor.name}' at {anchor.position} (scale {anchor.lossyScale}), " +
+                $"terminal at {terminal.transform.position}. " +
                 "Position falsch? -> Terminal.OffsetX/Y/Z in der Config anpassen.");
         }
 
@@ -81,6 +96,13 @@ namespace TruckOrganizer.Core
             {
                 return false;
             }
+        }
+
+        private static Vector3 FlatForward(Transform t)
+        {
+            Vector3 f = t.forward;
+            f.y = 0f;
+            return f.sqrMagnitude < 0.001f ? Vector3.forward : f.normalized;
         }
 
         private static Transform FindTruckScreen()
