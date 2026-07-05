@@ -5,9 +5,11 @@ using UnityEngine;
 namespace TruckOrganizer.Core
 {
     /// <summary>
-    /// Spawns the wall terminal inside the truck. The truck is part of fixed
-    /// scenes, so the terminal is anchored relative to the truck screen and
-    /// created locally on every client (no sync required).
+    /// Spawns the wall terminal inside the truck. The terminal is anchored
+    /// relative to the truck screen and created locally on every client.
+    /// Players can re-place it at any wall they aim at (default F9); the new
+    /// position is stored in the config relative to the anchor, so it is
+    /// restored in every scene and session.
     /// </summary>
     public static class TerminalSpawner
     {
@@ -39,24 +41,11 @@ namespace TruckOrganizer.Core
                 yield break;
             }
 
-            GameObject terminal;
             try
             {
-                terminal = AssetFactory.CreateTerminal();
-
-                // Do NOT parent under the screen: text displays often carry a
-                // tiny transform scale which would shrink the terminal into
-                // invisibility. Place it in world space instead.
-                Quaternion facing = Quaternion.LookRotation(FlatForward(anchor), Vector3.up)
-                    * Quaternion.Euler(0f, Plugin.TerminalRotationY.Value, 0f);
+                Quaternion facing = AnchorFacing(anchor) * Quaternion.Euler(0f, Plugin.TerminalRotationY.Value, 0f);
                 Vector3 position = anchor.position + facing * Plugin.TerminalOffset;
-                terminal.transform.SetPositionAndRotation(position, facing);
-
-                StorageContainer container = terminal.AddComponent<StorageContainer>();
-                container.label = "Lager-Terminal";
-
-                TerminalScreen screen = terminal.GetComponentInChildren<TerminalScreen>();
-                if (screen != null) screen.PowerOn();
+                CreateOrMove(position, facing);
             }
             catch (System.Exception e)
             {
@@ -64,11 +53,101 @@ namespace TruckOrganizer.Core
                 yield break;
             }
 
-            _currentTerminal = terminal;
             Plugin.Log.LogInfo(
-                $"Terminal spawned. Anchor '{anchor.name}' at {anchor.position} (scale {anchor.lossyScale}), " +
-                $"terminal at {terminal.transform.position}. " +
-                "Position falsch? -> Terminal.OffsetX/Y/Z in der Config anpassen.");
+                $"Terminal spawned. Anchor '{anchor.name}' at {anchor.position}, " +
+                $"terminal at {_currentTerminal.transform.position}. " +
+                $"Position falsch? -> Im Spiel auf eine Wand zielen und {Plugin.PlaceTerminalKey.Value} drücken.");
+        }
+
+        /// <summary>
+        /// Places (or moves) the terminal onto the surface the player is
+        /// aiming at and persists the placement relative to the truck screen.
+        /// </summary>
+        public static void PlaceAtAim()
+        {
+            Camera cam = Camera.main;
+            if (cam == null)
+            {
+                Plugin.Log.LogWarning("Terminal placement: no camera.");
+                return;
+            }
+
+            if (!Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit hit, 4.5f,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            {
+                Plugin.Log.LogWarning("Terminal placement: nothing hit; aim at a wall within 4m.");
+                return;
+            }
+
+            Vector3 normal = hit.normal;
+            if (Mathf.Abs(normal.y) > 0.6f)
+            {
+                Plugin.Log.LogWarning("Terminal placement: aim at a WALL (not floor/ceiling).");
+                return;
+            }
+            normal.y = 0f;
+            normal.Normalize();
+
+            // Terminal front is -Z; +Z (its back) must point into the wall.
+            Quaternion rotation = Quaternion.LookRotation(-normal, Vector3.up);
+            Vector3 position = hit.point + normal * 0.08f;
+
+            CreateOrMove(position, rotation);
+            PersistPlacement(position, rotation);
+            Plugin.Log.LogInfo($"Terminal placed at {position} (aim placement).");
+        }
+
+        private static void CreateOrMove(Vector3 position, Quaternion rotation)
+        {
+            if (_currentTerminal == null)
+            {
+                GameObject terminal = AssetFactory.CreateTerminal();
+
+                StorageContainer container = terminal.AddComponent<StorageContainer>();
+                container.label = "Lager-Terminal";
+
+                _currentTerminal = terminal;
+                terminal.transform.SetPositionAndRotation(position, rotation);
+
+                TerminalScreen screen = terminal.GetComponentInChildren<TerminalScreen>();
+                if (screen != null) screen.PowerOn();
+            }
+            else
+            {
+                _currentTerminal.transform.SetPositionAndRotation(position, rotation);
+            }
+        }
+
+        /// <summary>
+        /// Stores the placement relative to the truck screen anchor in the
+        /// config, inverting the math used by SpawnWhenReady.
+        /// </summary>
+        private static void PersistPlacement(Vector3 position, Quaternion rotation)
+        {
+            Transform anchor = FindTruckScreen();
+            if (anchor == null)
+            {
+                Plugin.Log.LogInfo("Terminal placement: no anchor in scene; placement not persisted.");
+                return;
+            }
+
+            Quaternion anchorFacing = AnchorFacing(anchor);
+            float rotY = Mathf.DeltaAngle(anchorFacing.eulerAngles.y, rotation.eulerAngles.y);
+            Vector3 offset = Quaternion.Inverse(rotation) * (position - anchor.position);
+
+            Plugin.TerminalRotationY.Value = rotY;
+            Plugin.TerminalOffsetX.Value = offset.x;
+            Plugin.TerminalOffsetY.Value = offset.y;
+            Plugin.TerminalOffsetZ.Value = offset.z;
+            Plugin.Log.LogInfo($"Terminal placement persisted (offset {offset}, rotY {rotY:0.0}).");
+        }
+
+        private static Quaternion AnchorFacing(Transform anchor)
+        {
+            Vector3 f = anchor.forward;
+            f.y = 0f;
+            if (f.sqrMagnitude < 0.001f) f = Vector3.forward;
+            return Quaternion.LookRotation(f.normalized, Vector3.up);
         }
 
         private static bool LevelIsReady()
@@ -96,13 +175,6 @@ namespace TruckOrganizer.Core
             {
                 return false;
             }
-        }
-
-        private static Vector3 FlatForward(Transform t)
-        {
-            Vector3 f = t.forward;
-            f.y = 0f;
-            return f.sqrMagnitude < 0.001f ? Vector3.forward : f.normalized;
         }
 
         private static Transform FindTruckScreen()

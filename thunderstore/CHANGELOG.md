@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.3
+
+- Menü-Bedienung repariert: Cursor wird jetzt zuverlässig entsperrt
+  (LateUpdate-Override), Menü komplett per Tastatur bedienbar
+  (↑/↓ wählen, Enter = Nehmen, U = Upgrade benutzen).
+- Menü schließt mit E/Tab statt nur Esc (Esc öffnet das Spielmenü);
+  Blickrichtung schließt das Menü nicht mehr, nur Entfernung.
+- Terminal-Platzierung per Taste (Standard F9): auf eine Wand zielen,
+  F9 drücken – Terminal sitzt dort und die Position wird dauerhaft
+  gespeichert (auch für kommende Sessions/Level).
+- Truhen-Spawn zusätzlich an StateSet, StateSetRPC und
+  RoundDirector.ExtractionCompleted gekoppelt, falls StateComplete
+  nicht durchlaufen wird.
+
 ## 0.1.2
 
 - Terminal wird nicht mehr unter den Truck-Bildschirm geparentet

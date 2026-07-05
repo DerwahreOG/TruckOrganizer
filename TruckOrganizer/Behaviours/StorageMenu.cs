@@ -8,7 +8,8 @@ namespace TruckOrganizer.Behaviours
     /// <summary>
     /// IMGUI menu shared by chest and terminal. Lists the storage content,
     /// lets players take items into their inventory slots or consume player
-    /// upgrades directly.
+    /// upgrades directly. Fully keyboard-operable (arrow keys + Enter/U) in
+    /// case the game fights over the mouse cursor.
     /// </summary>
     public class StorageMenu : MonoBehaviour
     {
@@ -17,18 +18,32 @@ namespace TruckOrganizer.Behaviours
 
         private static StorageContainer _source;
         private static Vector2 _scroll;
+        private static int _selected;
+        private static int _closedFrame = -1;
 
         private const int WindowId = 0x7402;
 
+        private struct Row
+        {
+            public string ItemName;
+            public int Count;
+            public bool IsUpgrade;
+        }
+
         public static void Open(StorageContainer source)
         {
+            // Do not reopen in the very frame the menu was closed with the
+            // interact key, otherwise close/open toggle in one frame.
+            if (Time.frameCount == _closedFrame) return;
             _source = source;
+            _selected = 0;
             IsOpen = true;
             StorageService.RequestSnapshot();
         }
 
         public static void ForceClose()
         {
+            if (IsOpen) _closedFrame = Time.frameCount;
             IsOpen = false;
             _source = null;
             HintSource = null;
@@ -45,7 +60,7 @@ namespace TruckOrganizer.Behaviours
             {
                 try
                 {
-                    Core.Diagnostics.DumpAndSpawnDebugChest();
+                    Diagnostics.DumpAndSpawnDebugChest();
                 }
                 catch (System.Exception e)
                 {
@@ -53,47 +68,116 @@ namespace TruckOrganizer.Behaviours
                 }
             }
 
+            if (Input.GetKeyDown(Plugin.PlaceTerminalKey.Value))
+            {
+                try
+                {
+                    TerminalSpawner.PlaceAtAim();
+                }
+                catch (System.Exception e)
+                {
+                    Plugin.Log.LogError($"Terminal placement failed: {e}");
+                }
+            }
+
             if (!IsOpen) return;
 
-            if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Tab))
+            if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Tab) ||
+                Input.GetKeyDown(Plugin.InteractKey.Value))
             {
                 ForceClose();
                 return;
             }
 
-            if (_source == null || !_source.LocalPlayerCanInteract())
+            if (_source == null || !_source.LocalPlayerWithinRange())
             {
                 ForceClose();
                 return;
             }
 
+            HandleKeyboard();
             HoldGameInput();
+        }
+
+        private void LateUpdate()
+        {
+            // Runs after the game's own cursor handling; last writer wins.
+            if (!IsOpen) return;
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
+
+        private static void HandleKeyboard()
+        {
+            List<Row> rows = BuildRows();
+            if (rows.Count == 0) return;
+
+            _selected = Mathf.Clamp(_selected, 0, rows.Count - 1);
+
+            if (Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.S))
+            {
+                _selected = (_selected + 1) % rows.Count;
+            }
+            if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W))
+            {
+                _selected = (_selected - 1 + rows.Count) % rows.Count;
+            }
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+            {
+                StorageService.RequestTake(rows[_selected].ItemName);
+                ForceClose();
+            }
+            else if (Input.GetKeyDown(KeyCode.U) && rows[_selected].IsUpgrade)
+            {
+                StorageService.RequestUse(rows[_selected].ItemName);
+            }
         }
 
         private static void HoldGameInput()
         {
             try
             {
-                if (CursorManager.instance != null) CursorManager.instance.Unlock(0.2f);
+                if (CursorManager.instance != null) CursorManager.instance.Unlock(0.25f);
                 if (InputManager.instance != null)
                 {
-                    InputManager.instance.disableMovementTimer = 0.2f;
-                    InputManager.instance.disableAimingTimer = 0.2f;
+                    InputManager.instance.disableMovementTimer = 0.25f;
+                    InputManager.instance.disableAimingTimer = 0.25f;
                 }
             }
             catch { /* game managers not available in this scene */ }
+        }
+
+        private static List<Row> BuildRows()
+        {
+            var rows = new List<Row>();
+            foreach (var entry in StorageService.Contents
+                         .Where(e => e.Value > 0)
+                         .OrderBy(e => !StorageService.IsPlayerUpgrade(e.Key))
+                         .ThenBy(e => StorageService.DisplayName(e.Key)))
+            {
+                rows.Add(new Row
+                {
+                    ItemName = entry.Key,
+                    Count = entry.Value,
+                    IsUpgrade = StorageService.IsPlayerUpgrade(entry.Key),
+                });
+            }
+            return rows;
         }
 
         private void OnGUI()
         {
             if (IsOpen)
             {
-                float width = 460f;
-                float height = 420f;
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+
+                float width = 520f;
+                float height = 440f;
                 var rect = new Rect((Screen.width - width) / 2f, (Screen.height - height) / 2f, width, height);
                 GUILayout.Window(WindowId, rect, DrawWindow, _source != null ? _source.label : "Lager");
             }
-            else if (HintSource != null && !IsOpen)
+            else if (HintSource != null)
             {
                 DrawHint();
             }
@@ -102,7 +186,7 @@ namespace TruckOrganizer.Behaviours
         private static void DrawHint()
         {
             string text = $"[{Plugin.InteractKey.Value}] {HintSource.label} öffnen";
-            var size = new Vector2(280f, 28f);
+            var size = new Vector2(300f, 28f);
             var rect = new Rect((Screen.width - size.x) / 2f, Screen.height * 0.72f, size.x, size.y);
 
             GUI.color = new Color(0f, 0f, 0f, 0.6f);
@@ -114,62 +198,68 @@ namespace TruckOrganizer.Behaviours
 
         private static void DrawWindow(int id)
         {
-            List<KeyValuePair<string, int>> upgrades = new List<KeyValuePair<string, int>>();
-            List<KeyValuePair<string, int>> items = new List<KeyValuePair<string, int>>();
+            List<Row> rows = BuildRows();
+            _selected = rows.Count == 0 ? 0 : Mathf.Clamp(_selected, 0, rows.Count - 1);
 
-            foreach (var entry in StorageService.Contents.OrderBy(e => StorageService.DisplayName(e.Key)))
-            {
-                if (entry.Value <= 0) continue;
-                if (StorageService.IsPlayerUpgrade(entry.Key)) upgrades.Add(entry);
-                else items.Add(entry);
-            }
+            GUILayout.Label(
+                "Steuerung: ↑/↓ wählen, Enter = Nehmen, U = Upgrade benutzen, " +
+                $"{Plugin.InteractKey.Value}/Tab/Esc = schließen", SmallLabel());
+            GUILayout.Space(4f);
 
             _scroll = GUILayout.BeginScrollView(_scroll);
 
-            if (upgrades.Count == 0 && items.Count == 0)
+            if (rows.Count == 0)
             {
                 GUILayout.Space(12f);
                 GUILayout.Label("Das Lager ist leer.", CenteredLabel());
             }
 
-            if (upgrades.Count > 0)
+            bool headerDrawn = false;
+            for (int i = 0; i < rows.Count; i++)
             {
-                GUILayout.Label("<b>Upgrades</b>", RichLabel());
-                foreach (var entry in upgrades) DrawRow(entry, isUpgrade: true);
-                GUILayout.Space(8f);
-            }
-
-            if (items.Count > 0)
-            {
-                GUILayout.Label("<b>Items</b>", RichLabel());
-                foreach (var entry in items) DrawRow(entry, isUpgrade: false);
+                if (i == 0 && rows[i].IsUpgrade)
+                {
+                    GUILayout.Label("<b>Upgrades</b>", RichLabel());
+                }
+                if (!rows[i].IsUpgrade && !headerDrawn)
+                {
+                    if (i > 0) GUILayout.Space(8f);
+                    GUILayout.Label("<b>Items</b>", RichLabel());
+                    headerDrawn = true;
+                }
+                DrawRow(rows[i], i);
             }
 
             GUILayout.EndScrollView();
 
             GUILayout.Space(6f);
-            if (GUILayout.Button("Schließen [Esc]"))
+            if (GUILayout.Button("Schließen"))
             {
                 ForceClose();
             }
         }
 
-        private static void DrawRow(KeyValuePair<string, int> entry, bool isUpgrade)
+        private static void DrawRow(Row row, int index)
         {
             GUILayout.BeginHorizontal();
-            GUILayout.Label($"{StorageService.DisplayName(entry.Key)}  x{entry.Value}", GUILayout.ExpandWidth(true));
 
-            if (isUpgrade)
+            string marker = index == _selected ? "► " : "    ";
+            GUILayout.Label($"{marker}{StorageService.DisplayName(row.ItemName)}  x{row.Count}",
+                GUILayout.ExpandWidth(true));
+
+            if (row.IsUpgrade)
             {
-                if (GUILayout.Button("Benutzen", GUILayout.Width(90f)))
+                if (GUILayout.Button("Benutzen [U]", GUILayout.Width(110f)))
                 {
-                    StorageService.RequestUse(entry.Key);
+                    _selected = index;
+                    StorageService.RequestUse(row.ItemName);
                 }
             }
 
-            if (GUILayout.Button("Nehmen", GUILayout.Width(90f)))
+            if (GUILayout.Button("Nehmen [Enter]", GUILayout.Width(120f)))
             {
-                StorageService.RequestTake(entry.Key);
+                _selected = index;
+                StorageService.RequestTake(row.ItemName);
                 ForceClose();
             }
 
@@ -178,6 +268,7 @@ namespace TruckOrganizer.Behaviours
 
         private static GUIStyle _centeredLabel;
         private static GUIStyle _richLabel;
+        private static GUIStyle _smallLabel;
 
         private static GUIStyle CenteredLabel()
         {
@@ -192,6 +283,15 @@ namespace TruckOrganizer.Behaviours
             return _richLabel ??= new GUIStyle(GUI.skin.label)
             {
                 richText = true,
+            };
+        }
+
+        private static GUIStyle SmallLabel()
+        {
+            return _smallLabel ??= new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 11,
+                wordWrap = true,
             };
         }
     }

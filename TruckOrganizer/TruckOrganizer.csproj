@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>TruckOrganizer</AssemblyName>
     <Product>TruckOrganizer</Product>
-    <Version>0.1.2</Version>
+    <Version>0.1.3</Version>
     <Description>Persistent storage chest at the extraction point and a wall terminal in the truck for R.E.P.O.</Description>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>

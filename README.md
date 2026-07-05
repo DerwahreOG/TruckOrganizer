@@ -31,9 +31,11 @@ Terminal und Menü brauchen ihn alle Spieler.
 ## Bedienung
 
 - Truhe/Terminal ansehen und `E` drücken (Taste konfigurierbar) → Lager-Menü öffnet sich.
-- **Nehmen**: Item wird gespawnt und nach Möglichkeit direkt in einen freien Slot gelegt.
-- **Benutzen** (nur Spieler-Upgrades): Upgrade wird verbraucht und sofort angewendet.
-- `Esc` schließt das Menü.
+- **Nehmen** (`Enter` oder Button): Item wird gespawnt und nach Möglichkeit in einen freien Slot gelegt.
+- **Benutzen** (`U` oder Button, nur Spieler-Upgrades): Upgrade wird verbraucht und sofort angewendet.
+- Auswahl mit `↑`/`↓`; `E`, `Tab` oder `Esc` schließt das Menü.
+- **Terminal versetzen**: Auf eine Wand zielen und `F9` drücken – die Position wird
+  dauerhaft gespeichert und in jeder Szene wiederverwendet.
 
 ## Konfiguration (`BepInEx/config/truckorganizer.storage.cfg`)
 
@@ -61,7 +63,7 @@ Terminal und Menü brauchen ihn alle Spieler.
 
 Testablauf (erst Singleplayer, dann Multiplayer):
 
-- Spiel starten → Log muss `TruckOrganizer v0.1.2 loaded.` zeigen.
+- Spiel starten → Log muss `TruckOrganizer v0.1.3 loaded.` zeigen.
 - Im Truck: Terminal neben dem Bildschirm mit Boot-Flackern. Position passt nicht?
   → `Terminal.PositionOffset` / `RotationOffset` in der Config justieren.
 - Im Shop einkaufen → Log zeigt `Moved purchase '...' into storage`, die Items

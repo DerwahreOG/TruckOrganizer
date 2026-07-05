@@ -15,7 +15,7 @@ namespace TruckOrganizer
     {
         public const string Guid = "truckorganizer.storage";
         public const string Name = "TruckOrganizer";
-        public const string Version = "0.1.2";
+        public const string Version = "0.1.3";
 
         public static Plugin Instance { get; private set; }
         public static bool PatchesApplied { get; private set; }
@@ -28,6 +28,7 @@ namespace TruckOrganizer
         public static ConfigEntry<bool> PurchasesGoToStorage;
         public static ConfigEntry<KeyCode> InteractKey;
         public static ConfigEntry<KeyCode> DebugKey;
+        public static ConfigEntry<KeyCode> PlaceTerminalKey;
         public static ConfigEntry<float> InteractRange;
         public static ConfigEntry<float> TerminalOffsetX;
         public static ConfigEntry<float> TerminalOffsetY;
@@ -56,6 +57,8 @@ namespace TruckOrganizer
                 "Key used to open the chest / terminal while looking at it.");
             DebugKey = Config.Bind("Input", "DebugKey", KeyCode.F8,
                 "Dumps mod diagnostics into the BepInEx log and spawns a debug chest in front of the player.");
+            PlaceTerminalKey = Config.Bind("Input", "PlaceTerminalKey", KeyCode.F9,
+                "Places/moves the terminal onto the wall you are aiming at and saves that position.");
             InteractRange = Config.Bind("Input", "InteractRange", 2.6f,
                 "Maximum distance to interact with the chest / terminal.");
             TerminalOffsetX = Config.Bind("Terminal", "OffsetX", 1.35f,

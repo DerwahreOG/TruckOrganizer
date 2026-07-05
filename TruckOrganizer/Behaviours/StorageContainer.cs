@@ -26,6 +26,16 @@ namespace TruckOrganizer.Behaviours
             return Vector3.Dot(cam.transform.forward, toContainer.normalized) > LookDotThreshold;
         }
 
+        /// <summary>Distance-only check used while the menu is open, so the
+        /// menu does not close just because the view direction changes.</summary>
+        public bool LocalPlayerWithinRange()
+        {
+            Camera cam = Camera.main;
+            if (cam == null) return false;
+            Vector3 focus = transform.position + Vector3.up * 0.4f;
+            return (focus - cam.transform.position).magnitude <= Plugin.InteractRange.Value + 0.8f;
+        }
+
         private void Update()
         {
             if (StorageMenu.IsOpen) return;
