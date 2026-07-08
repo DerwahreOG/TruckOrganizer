@@ -15,7 +15,7 @@ namespace TruckOrganizer
     {
         public const string Guid = "truckorganizer.storage";
         public const string Name = "TruckOrganizer";
-        public const string Version = "0.1.5";
+        public const string Version = "0.1.6";
 
         public static Plugin Instance { get; private set; }
         public static bool PatchesApplied { get; private set; }
@@ -40,6 +40,7 @@ namespace TruckOrganizer
             new Vector3(TerminalOffsetX.Value, TerminalOffsetY.Value, TerminalOffsetZ.Value);
 
         private Harmony _harmony;
+        private ChestWatchdog _watchdog;
 
         private void Awake()
         {
@@ -75,17 +76,24 @@ namespace TruckOrganizer
                 "While false, the terminal mounts itself onto the nearest wall around the truck screen.");
 
             Log.LogInfo("Config bound, applying Harmony patches...");
-            try
+            _harmony = new Harmony(Guid);
+            int patched = 0, failed = 0;
+            foreach (Type type in typeof(Plugin).Assembly.GetTypes())
             {
-                _harmony = new Harmony(Guid);
-                _harmony.PatchAll(typeof(Plugin).Assembly);
-                PatchesApplied = true;
-                Log.LogInfo("Harmony patches applied.");
+                if (type.GetCustomAttributes(typeof(HarmonyPatch), false).Length == 0) continue;
+                try
+                {
+                    _harmony.CreateClassProcessor(type).Patch();
+                    patched++;
+                }
+                catch (Exception e)
+                {
+                    failed++;
+                    Log.LogError($"Patch class {type.Name} failed (game version mismatch?): {e.Message}");
+                }
             }
-            catch (Exception e)
-            {
-                Log.LogError($"Harmony patching failed (game version mismatch?): {e}");
-            }
+            PatchesApplied = failed == 0;
+            Log.LogInfo($"Harmony patching done: {patched} classes ok, {failed} failed.");
 
             NetworkEvents.Initialize();
             AssetFactory.TryLoadBundle();
@@ -96,6 +104,7 @@ namespace TruckOrganizer
             gameObject.hideFlags = HideFlags.HideAndDontSave;
             DontDestroyOnLoad(gameObject);
             gameObject.AddComponent<StorageMenu>();
+            _watchdog = gameObject.AddComponent<ChestWatchdog>();
 
             Log.LogInfo($"{Name} v{Version} loaded.");
         }
@@ -106,6 +115,7 @@ namespace TruckOrganizer
             {
                 Log.LogInfo($"Scene loaded: {scene.name}");
                 ChestSpawner.OnSceneLoaded();
+                ChestWatchdog.ResetOnSceneLoad(_watchdog);
                 StorageMenu.ForceClose();
                 if (TerminalEnabled.Value)
                 {

@@ -113,6 +113,15 @@ namespace TruckOrganizer.Core
             Quaternion rotation = Quaternion.LookRotation(-normal, Vector3.up);
             Vector3 position = hit.point + normal * 0.08f;
 
+            // Pressing the key again on (almost) the same spot flips the
+            // terminal 180° - handy when a custom model faces the other way.
+            if (_currentTerminal != null &&
+                Vector3.Distance(_currentTerminal.transform.position, position) < 0.4f)
+            {
+                rotation = _currentTerminal.transform.rotation * Quaternion.Euler(0f, 180f, 0f);
+                Plugin.Log.LogInfo("Terminal flipped 180°.");
+            }
+
             CreateOrMove(position, rotation);
             PersistPlacement(position, rotation);
             Plugin.Log.LogInfo($"Terminal placed at {position} (aim placement).");

@@ -45,10 +45,9 @@ namespace TruckOrganizer.Behaviours
             if (IsOpen)
             {
                 _closedFrame = Time.frameCount;
-                // Hand the cursor back to the game: force-lock briefly so the
-                // aim camera works again even if the game does not re-lock on
-                // its own.
-                _relockUntil = Time.time + 0.4f;
+                // Hand the cursor back to the game: force-lock long enough
+                // that the game's own cursor handling takes over again.
+                _relockUntil = Time.time + 1.5f;
             }
             IsOpen = false;
             _source = null;
@@ -115,13 +114,25 @@ namespace TruckOrganizer.Behaviours
             }
             else if (Time.time < _relockUntil)
             {
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
+                // Stop while another (game) menu is open, e.g. after Esc.
+                bool gameCursorWantsUnlock = false;
                 try
                 {
-                    if (CursorManager.instance != null) CursorManager.instance.unlockTimer = 0f;
+                    gameCursorWantsUnlock = CursorManager.instance != null &&
+                                            CursorManager.instance.unlockTimer > 0.5f;
                 }
                 catch { /* manager not available */ }
+
+                if (!gameCursorWantsUnlock)
+                {
+                    Cursor.lockState = CursorLockMode.Locked;
+                    Cursor.visible = false;
+                    try
+                    {
+                        if (CursorManager.instance != null) CursorManager.instance.unlockTimer = 0f;
+                    }
+                    catch { /* manager not available */ }
+                }
             }
         }
 
@@ -225,7 +236,7 @@ namespace TruckOrganizer.Behaviours
             GUI.Label(header, $"{totalItems} Gegenstände eingelagert", UITheme.TitleRight);
 
             // --- Content ---
-            var content = new Rect(panel.x + 12f, panel.y + 52f, panel.width - 24f, panel.height - 52f - 78f);
+            var content = new Rect(panel.x + 12f, panel.y + 52f, panel.width - 24f, panel.height - 52f - 92f);
             GUILayout.BeginArea(content);
             _scroll = GUILayout.BeginScrollView(_scroll);
 
@@ -262,8 +273,12 @@ namespace TruckOrganizer.Behaviours
             GUILayout.EndArea();
 
             // --- Footer ---
-            var footer = new Rect(panel.x + 12f, panel.yMax - 72f, panel.width - 24f, 64f);
+            var footer = new Rect(panel.x + 12f, panel.yMax - 88f, panel.width - 24f, 80f);
             GUILayout.BeginArea(footer);
+            if (!string.IsNullOrEmpty(StorageService.LastStatus))
+            {
+                GUILayout.Label(StorageService.LastStatus, UITheme.Section);
+            }
             GUILayout.Label(
                 "↑/↓ wählen   ·   Enter = Nehmen   ·   U = Upgrade benutzen   ·   " +
                 $"{Plugin.InteractKey.Value}/Tab = schließen", UITheme.Hint);

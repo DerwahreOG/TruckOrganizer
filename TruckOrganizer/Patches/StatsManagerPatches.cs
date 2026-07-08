@@ -5,18 +5,16 @@ using UnityEngine;
 
 namespace TruckOrganizer.Patches
 {
-    /// <summary>
-    /// Persistence hooks and the "shop purchases go into storage" logic.
-    /// Every postfix body is wrapped in try/catch: an exception escaping a
-    /// Harmony postfix would abort the patched vanilla method mid-flight and
-    /// corrupt the game's save/run state.
-    /// </summary>
-    [HarmonyPatch(typeof(StatsManager))]
-    internal static class StatsManagerPatches
+    // Persistence hooks and the "shop purchases go into storage" logic.
+    // One class per hook so a single missing game method cannot disable the
+    // remaining hooks. Every body is wrapped in try/catch: an exception
+    // escaping a postfix would abort the patched vanilla method mid-flight.
+
+    [HarmonyPatch(typeof(StatsManager), nameof(StatsManager.SaveFileSave))]
+    internal static class SaveFileSavePatch
     {
-        [HarmonyPatch(nameof(StatsManager.SaveFileSave))]
         [HarmonyPostfix]
-        private static void SaveFileSavePostfix()
+        private static void Postfix()
         {
             try
             {
@@ -27,25 +25,31 @@ namespace TruckOrganizer.Patches
                 Plugin.Log.LogError($"SaveFileSave hook failed: {e}");
             }
         }
+    }
 
-        [HarmonyPatch(nameof(StatsManager.LoadGame))]
+    [HarmonyPatch(typeof(StatsManager), nameof(StatsManager.LoadGame))]
+    internal static class LoadGamePatch
+    {
         [HarmonyPostfix]
-        private static void LoadGamePostfix()
+        private static void Postfix()
         {
             try
             {
                 StorageService.LoadFromDisk();
-                MigrateExistingPurchases();
+                PurchaseInterception.MigrateExistingPurchases();
             }
             catch (Exception e)
             {
                 Plugin.Log.LogError($"LoadGame hook failed: {e}");
             }
         }
+    }
 
-        [HarmonyPatch(nameof(StatsManager.SaveFileCreate))]
+    [HarmonyPatch(typeof(StatsManager), nameof(StatsManager.SaveFileCreate))]
+    internal static class SaveFileCreatePatch
+    {
         [HarmonyPostfix]
-        private static void SaveFileCreatePostfix()
+        private static void Postfix()
         {
             try
             {
@@ -56,56 +60,68 @@ namespace TruckOrganizer.Patches
                 Plugin.Log.LogError($"SaveFileCreate hook failed: {e}");
             }
         }
+    }
 
-        /// <summary>
-        /// Host only: whenever an item is bought in the shop, move it from the
-        /// vanilla "spawn it in the truck" bookkeeping into the shared storage.
-        /// Only real shop purchases are intercepted; starter grants (e.g. the
-        /// starting cart on a new game) and carts stay vanilla.
-        /// </summary>
-        [HarmonyPatch(nameof(StatsManager.ItemPurchase))]
+    [HarmonyPatch(typeof(StatsManager), nameof(StatsManager.ItemPurchase))]
+    internal static class ItemPurchasePatch
+    {
         [HarmonyPostfix]
-        private static void ItemPurchasePostfix(StatsManager __instance, string itemName)
+        private static void Postfix(StatsManager __instance, string itemName)
         {
             try
             {
-                if (!Plugin.PurchasesGoToStorage.Value) return;
-                if (!SafeGame.IsHost()) return;
-
-                if (!SafeGame.RunIsShop())
-                {
-                    Plugin.Log.LogInfo($"Purchase '{itemName}' outside the shop; leaving it vanilla.");
-                    return;
-                }
-
-                if (IsExcludedFromStorage(itemName))
-                {
-                    Plugin.Log.LogInfo($"Purchase '{itemName}' is a cart/vehicle; leaving it vanilla.");
-                    return;
-                }
-
-                if (__instance.itemsPurchased == null ||
-                    !__instance.itemsPurchased.TryGetValue(itemName, out int count) || count <= 0)
-                {
-                    return;
-                }
-
-                SetPurchasedCount(__instance, itemName, count - 1);
-                StorageService.HostAdd(itemName);
-                Plugin.Log.LogInfo($"Moved purchase '{itemName}' into storage.");
+                PurchaseInterception.OnItemPurchase(__instance, itemName);
             }
             catch (Exception e)
             {
                 Plugin.Log.LogError($"Failed to move purchase into storage: {e}");
             }
         }
+    }
+
+    /// <summary>Shared logic for the purchase hooks above.</summary>
+    internal static class PurchaseInterception
+    {
+        /// <summary>
+        /// Host only: whenever an item is bought in the shop, move it from the
+        /// vanilla "spawn it in the truck" bookkeeping into the shared storage.
+        /// Starter grants (e.g. the starting cart) and physical infrastructure
+        /// (carts, vehicles, power crystals) stay vanilla.
+        /// </summary>
+        public static void OnItemPurchase(StatsManager stats, string itemName)
+        {
+            if (!Plugin.PurchasesGoToStorage.Value) return;
+            if (!SafeGame.IsHost()) return;
+
+            if (!SafeGame.RunIsShop())
+            {
+                Plugin.Log.LogInfo($"Purchase '{itemName}' outside the shop; leaving it vanilla.");
+                return;
+            }
+
+            if (IsExcludedFromStorage(itemName))
+            {
+                Plugin.Log.LogInfo($"Purchase '{itemName}' is excluded (cart/vehicle/crystal); leaving it vanilla.");
+                return;
+            }
+
+            if (stats.itemsPurchased == null ||
+                !stats.itemsPurchased.TryGetValue(itemName, out int count) || count <= 0)
+            {
+                return;
+            }
+
+            SetPurchasedCount(stats, itemName, count - 1);
+            StorageService.HostAdd(itemName);
+            Plugin.Log.LogInfo($"Moved purchase '{itemName}' into storage.");
+        }
 
         /// <summary>
-        /// When an existing save is loaded and the storage feature is active,
-        /// move previously purchased items into the storage as well so they
-        /// show up in the chest instead of cluttering the truck.
+        /// When an existing save is loaded: move previously purchased items
+        /// into the storage, and move excluded item types (carts, crystals)
+        /// that ended up in the storage in earlier mod versions back out.
         /// </summary>
-        private static void MigrateExistingPurchases()
+        public static void MigrateExistingPurchases()
         {
             if (!Plugin.PurchasesGoToStorage.Value) return;
             if (!SafeGame.IsHost()) return;
@@ -123,19 +139,32 @@ namespace TruckOrganizer.Patches
                 StorageService.HostAdd(itemName, count);
                 Plugin.Log.LogInfo($"Migrated {count}x '{itemName}' into storage.");
             }
+
+            // Reverse migration for items that no longer belong in storage.
+            foreach (var entry in new System.Collections.Generic.List<
+                         System.Collections.Generic.KeyValuePair<string, int>>(StorageService.ContentsSnapshot()))
+            {
+                if (!IsExcludedFromStorage(entry.Key) || entry.Value <= 0) continue;
+
+                stats.itemsPurchased.TryGetValue(entry.Key, out int current);
+                SetPurchasedCount(stats, entry.Key, current + entry.Value);
+                StorageService.HostAdd(entry.Key, -entry.Value);
+                Plugin.Log.LogInfo($"Moved {entry.Value}x '{entry.Key}' back out of storage (excluded type).");
+            }
         }
 
         /// <summary>
-        /// Carts and vehicles are physical infrastructure the game expects to
-        /// exist in the truck; keep them out of the storage entirely.
+        /// Carts, vehicles and power crystals are physical infrastructure the
+        /// game expects to exist in the world; keep them out of the storage.
         /// </summary>
-        private static bool IsExcludedFromStorage(string itemName)
+        public static bool IsExcludedFromStorage(string itemName)
         {
             Item item = StorageService.ResolveItem(itemName);
             if (item == null) return false;
             return item.itemType == SemiFunc.itemType.cart
                 || item.itemType == SemiFunc.itemType.pocket_cart
-                || item.itemType == SemiFunc.itemType.vehicle;
+                || item.itemType == SemiFunc.itemType.vehicle
+                || item.itemType == SemiFunc.itemType.power_crystal;
         }
 
         private static void SetPurchasedCount(StatsManager stats, string itemName, int value)

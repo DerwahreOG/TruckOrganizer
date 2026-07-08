@@ -4,18 +4,15 @@ using TruckOrganizer.Core;
 
 namespace TruckOrganizer.Patches
 {
-    /// <summary>
-    /// Spawns the chest once an extraction point has been completed
-    /// ("abgegeben"). Several hooks cover the different paths the game takes
-    /// into the Complete state; ChestSpawner deduplicates per point.
-    /// No hook may throw, otherwise the vanilla state machine breaks.
-    /// </summary>
-    [HarmonyPatch(typeof(ExtractionPoint))]
-    internal static class ExtractionPointPatches
+    // Each hook lives in its own class: patching is done per class, so if the
+    // game renames one method after an update, only that single hook is lost
+    // and everything else keeps working. ChestSpawner deduplicates per point.
+
+    [HarmonyPatch(typeof(ExtractionPoint), nameof(ExtractionPoint.StateComplete))]
+    internal static class ExtractionStateCompletePatch
     {
-        [HarmonyPatch(nameof(ExtractionPoint.StateComplete))]
         [HarmonyPostfix]
-        private static void StateCompletePostfix(ExtractionPoint __instance)
+        private static void Postfix(ExtractionPoint __instance)
         {
             try
             {
@@ -26,10 +23,13 @@ namespace TruckOrganizer.Patches
                 Plugin.Log.LogError($"Chest spawn hook (StateComplete) failed: {e}");
             }
         }
+    }
 
-        [HarmonyPatch(nameof(ExtractionPoint.StateSet))]
+    [HarmonyPatch(typeof(ExtractionPoint), nameof(ExtractionPoint.StateSet))]
+    internal static class ExtractionStateSetPatch
+    {
         [HarmonyPostfix]
-        private static void StateSetPostfix(ExtractionPoint __instance, ExtractionPoint.State newState)
+        private static void Postfix(ExtractionPoint __instance, ExtractionPoint.State newState)
         {
             try
             {
@@ -43,10 +43,13 @@ namespace TruckOrganizer.Patches
                 Plugin.Log.LogError($"Chest spawn hook (StateSet) failed: {e}");
             }
         }
+    }
 
-        [HarmonyPatch(nameof(ExtractionPoint.StateSetRPC))]
+    [HarmonyPatch(typeof(ExtractionPoint), nameof(ExtractionPoint.StateSetRPC))]
+    internal static class ExtractionStateSetRPCPatch
+    {
         [HarmonyPostfix]
-        private static void StateSetRPCPostfix(ExtractionPoint __instance, ExtractionPoint.State state)
+        private static void Postfix(ExtractionPoint __instance, ExtractionPoint.State state)
         {
             try
             {
@@ -62,16 +65,11 @@ namespace TruckOrganizer.Patches
         }
     }
 
-    /// <summary>
-    /// Extra safety net: RoundDirector.ExtractionCompleted fires once per
-    /// completed extraction point on the host.
-    /// </summary>
-    [HarmonyPatch(typeof(RoundDirector))]
-    internal static class RoundDirectorPatches
+    [HarmonyPatch(typeof(RoundDirector), nameof(RoundDirector.ExtractionCompleted))]
+    internal static class RoundDirectorExtractionCompletedPatch
     {
-        [HarmonyPatch(nameof(RoundDirector.ExtractionCompleted))]
         [HarmonyPostfix]
-        private static void ExtractionCompletedPostfix(RoundDirector __instance)
+        private static void Postfix(RoundDirector __instance)
         {
             try
             {

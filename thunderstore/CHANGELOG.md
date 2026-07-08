@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.6
+
+- Harmony-Patches werden jetzt pro Hook isoliert angewendet: ein durch ein
+  Spiel-Update umbenannter Methodenname deaktiviert nur noch diesen einen
+  Hook statt aller folgenden (sehr wahrscheinlich die Ursache für die
+  fehlende Truhe am Extraction Point).
+- Zusätzlicher patch-unabhängiger Überwacher: Truhe spawnt auch dann, wenn
+  alle Extraction-Hooks fehlschlagen (Abfrage des Abschluss-Zählers).
+- Menü zeigt jetzt eine Statuszeile (z. B. "'Gun' entnommen" oder
+  Fehlerhinweise); Nehmen/Benutzen loggt jeden Schritt.
+- Power-Kristalle bleiben Vanilla (nicht mehr im Lager); bereits
+  eingelagerte Kristalle/Carts werden beim Laden zurückverschoben.
+- Maus-Relock nach Menü-Schließen deutlich verstärkt.
+- F9 erneut auf das Terminal gedrückt dreht es um 180° (für Modelle, die
+  andersherum ausgerichtet sind) – Ausrichtung wird mitgespeichert.
+- Item-Spawn: klare Fehlermeldungen, Fallback-Spawnposition vor der Kamera.
+
 ## 0.1.5
 
 - Maus wird nach dem Schließen des Menüs wieder korrekt gesperrt

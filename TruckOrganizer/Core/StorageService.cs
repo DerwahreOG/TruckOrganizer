@@ -24,6 +24,20 @@ namespace TruckOrganizer.Core
 
         public static IReadOnlyDictionary<string, int> Contents => _storage;
 
+        /// <summary>Last user-facing status line, shown in the menu footer.</summary>
+        public static string LastStatus { get; private set; } = "";
+
+        public static void SetStatus(string status)
+        {
+            LastStatus = status;
+            Plugin.Log.LogInfo($"Storage status: {status}");
+        }
+
+        public static List<KeyValuePair<string, int>> ContentsSnapshot()
+        {
+            return new List<KeyValuePair<string, int>>(_storage);
+        }
+
         private static string SaveDirectory =>
             Path.Combine(Paths.ConfigPath, "TruckOrganizer");
 
@@ -43,48 +57,64 @@ namespace TruckOrganizer.Core
         public static void HostHandleTakeRequest(string itemName, string requesterSteamId)
         {
             if (!SafeGame.IsHost()) return;
+            Plugin.Log.LogInfo($"Take request: '{itemName}' for '{requesterSteamId}'.");
+
+            if (string.IsNullOrEmpty(requesterSteamId))
+            {
+                requesterSteamId = LocalSteamId();
+            }
+
             if (!_storage.TryGetValue(itemName, out int count) || count <= 0)
             {
-                Plugin.Log.LogWarning($"Take request for '{itemName}' denied (not in storage).");
+                SetStatus($"'{DisplayName(itemName)}' ist nicht (mehr) im Lager.");
                 return;
             }
 
             Item item = ResolveItem(itemName);
             if (item == null)
             {
-                Plugin.Log.LogError($"Take request for '{itemName}' denied (unknown item).");
+                SetStatus($"Unbekanntes Item '{itemName}' – siehe LogOutput.log.");
                 return;
             }
 
             GameObject spawned = ItemSpawner.SpawnForPlayer(item, requesterSteamId);
             if (spawned == null)
             {
-                Plugin.Log.LogError($"Failed to spawn '{itemName}'. Storage not changed.");
+                SetStatus($"Spawn von '{DisplayName(itemName)}' fehlgeschlagen – siehe LogOutput.log.");
                 return;
             }
 
             _storage[itemName] = count - 1;
             if (_storage[itemName] <= 0) _storage.Remove(itemName);
+            SetStatus($"'{DisplayName(itemName)}' entnommen.");
             AfterHostChange();
         }
 
         public static void HostHandleUseRequest(string itemName, string requesterSteamId)
         {
             if (!SafeGame.IsHost()) return;
+            Plugin.Log.LogInfo($"Use request: '{itemName}' for '{requesterSteamId}'.");
+
+            if (string.IsNullOrEmpty(requesterSteamId))
+            {
+                requesterSteamId = LocalSteamId();
+            }
+
             if (!_storage.TryGetValue(itemName, out int count) || count <= 0)
             {
-                Plugin.Log.LogWarning($"Use request for '{itemName}' denied (not in storage).");
+                SetStatus($"'{DisplayName(itemName)}' ist nicht (mehr) im Lager.");
                 return;
             }
 
             if (!UpgradeMap.TryApply(itemName, requesterSteamId))
             {
-                Plugin.Log.LogWarning($"'{itemName}' is not a usable upgrade.");
+                SetStatus($"'{DisplayName(itemName)}' konnte nicht angewendet werden – siehe LogOutput.log.");
                 return;
             }
 
             _storage[itemName] = count - 1;
             if (_storage[itemName] <= 0) _storage.Remove(itemName);
+            SetStatus($"'{DisplayName(itemName)}' benutzt.");
             AfterHostChange();
         }
 
@@ -115,11 +145,13 @@ namespace TruckOrganizer.Core
 
         public static void RequestTake(string itemName)
         {
+            SetStatus($"Entnehme '{DisplayName(itemName)}'...");
             NetworkEvents.SendTakeRequest(itemName, LocalSteamId());
         }
 
         public static void RequestUse(string itemName)
         {
+            SetStatus($"Benutze '{DisplayName(itemName)}'...");
             NetworkEvents.SendUseRequest(itemName, LocalSteamId());
         }
 

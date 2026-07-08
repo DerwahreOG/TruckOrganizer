@@ -24,22 +24,43 @@ namespace TruckOrganizer.Core
                 position = t.position + t.forward * 1.0f + Vector3.up * 1.2f;
                 rotation = Quaternion.LookRotation(-t.forward, Vector3.up);
             }
+            else if (Camera.main != null)
+            {
+                Transform c = Camera.main.transform;
+                position = c.position + c.forward * 1.2f;
+                rotation = Quaternion.LookRotation(-c.forward, Vector3.up);
+                Plugin.Log.LogWarning($"Item spawn: no avatar for '{steamId}', spawning in front of camera.");
+            }
             else
             {
                 position = Vector3.up;
+                Plugin.Log.LogWarning($"Item spawn: no avatar and no camera, spawning at origin.");
             }
 
             GameObject spawned;
             if (SafeGame.IsMultiplayer())
             {
+                Plugin.Log.LogInfo($"Spawning '{item.itemName}' via Photon ('{item.prefab.ResourcePath}') at {position}.");
                 spawned = PhotonNetwork.InstantiateRoomObject(item.prefab.ResourcePath, position, rotation);
             }
             else
             {
-                spawned = Object.Instantiate(item.prefab.Prefab, position, rotation);
+                Plugin.Log.LogInfo($"Spawning '{item.itemName}' locally at {position}.");
+                GameObject prefab = item.prefab.Prefab;
+                if (prefab == null)
+                {
+                    Plugin.Log.LogError($"Prefab for '{item.itemName}' could not be loaded " +
+                        $"(ResourcePath '{item.prefab.ResourcePath}').");
+                    return null;
+                }
+                spawned = Object.Instantiate(prefab, position, rotation);
             }
 
-            if (spawned == null) return null;
+            if (spawned == null)
+            {
+                Plugin.Log.LogError($"Instantiate returned null for '{item.itemName}'.");
+                return null;
+            }
 
             PhotonView view = spawned.GetComponent<PhotonView>();
             int viewId = view != null ? view.ViewID : -1;
