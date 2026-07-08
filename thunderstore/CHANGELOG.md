@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.7
+
+- AssetBundle-Loader verbessert: sucht die Bundle-Datei auch im
+  Plugins-Wurzelordner und in Unterordnern, matcht Prefab-Namen unscharf
+  (z. B. "REPO_Truhe", "WallTerminal") und loggt beim Start genau,
+  welches Bundle geladen wurde, welche Prefabs es enthält und wie groß
+  die Modelle sind. Ohne Bundle wird klar geloggt, dass Platzhalter
+  aktiv sind.
+
 ## 0.1.6
 
 - Harmony-Patches werden jetzt pro Hook isoliert angewendet: ein durch ein

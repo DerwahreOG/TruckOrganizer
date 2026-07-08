@@ -22,15 +22,52 @@ namespace TruckOrganizer.Core
 
         public static void TryLoadBundle()
         {
-            string dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            string path = Path.Combine(dir ?? ".", BundleFileName);
-            if (!File.Exists(path)) return;
+            string path = FindBundleFile();
+            if (path == null)
+            {
+                Plugin.Log.LogInfo(
+                    "No 'truckorganizer' asset bundle found next to the plugin DLL - using built-in placeholder models. " +
+                    "Eigene Modelle: Bundle-Datei 'truckorganizer' (ohne Endung) neben die TruckOrganizer.dll legen.");
+                return;
+            }
 
             _bundle = AssetBundle.LoadFromFile(path);
-            if (_bundle != null)
+            if (_bundle == null)
             {
-                Plugin.Log.LogInfo("Loaded TruckOrganizer asset bundle.");
+                Plugin.Log.LogError($"Asset bundle at '{path}' could not be loaded " +
+                    "(wrong Unity version or not built for StandaloneWindows64?).");
+                return;
             }
+
+            Plugin.Log.LogInfo($"Loaded TruckOrganizer asset bundle from '{path}'. " +
+                $"Contains: {string.Join(", ", _bundle.GetAllAssetNames())}");
+        }
+
+        private static string FindBundleFile()
+        {
+            string assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+
+            // Directly next to the DLL, then one level up (plugins root).
+            foreach (string dir in new[] { assemblyDir, assemblyDir != null ? Path.GetDirectoryName(assemblyDir) : null })
+            {
+                if (dir == null) continue;
+                string candidate = Path.Combine(dir, BundleFileName);
+                if (File.Exists(candidate)) return candidate;
+            }
+
+            // Last resort: search the whole BepInEx plugin folder.
+            try
+            {
+                string pluginRoot = BepInEx.Paths.PluginPath;
+                if (Directory.Exists(pluginRoot))
+                {
+                    string[] hits = Directory.GetFiles(pluginRoot, BundleFileName, SearchOption.AllDirectories);
+                    if (hits.Length > 0) return hits[0];
+                }
+            }
+            catch { /* IO errors are non-fatal */ }
+
+            return null;
         }
 
         // ------------------------------------------------------------------
@@ -39,7 +76,7 @@ namespace TruckOrganizer.Core
 
         public static GameObject CreateChest()
         {
-            GameObject fromBundle = InstantiateFromBundle(ChestPrefabName);
+            GameObject fromBundle = InstantiateFromBundle(ChestPrefabName, "chest", "truhe", "kiste");
             if (fromBundle != null) return fromBundle;
 
             var root = new GameObject("TruckOrganizer_Chest");
@@ -70,7 +107,7 @@ namespace TruckOrganizer.Core
 
         public static GameObject CreateTerminal()
         {
-            GameObject fromBundle = InstantiateFromBundle(TerminalPrefabName);
+            GameObject fromBundle = InstantiateFromBundle(TerminalPrefabName, "terminal", "wall");
             if (fromBundle != null)
             {
                 EnsureTerminalScreen(fromBundle);
@@ -143,11 +180,57 @@ namespace TruckOrganizer.Core
         // Helpers
         // ------------------------------------------------------------------
 
-        private static GameObject InstantiateFromBundle(string prefabName)
+        private static GameObject InstantiateFromBundle(string prefabName, params string[] nameKeywords)
         {
             if (_bundle == null) return null;
+
             GameObject prefab = _bundle.LoadAsset<GameObject>(prefabName);
-            return prefab != null ? Object.Instantiate(prefab) : null;
+
+            // Tolerant fallback: match any prefab in the bundle whose name
+            // contains one of the keywords (case-insensitive).
+            if (prefab == null)
+            {
+                foreach (GameObject candidate in _bundle.LoadAllAssets<GameObject>())
+                {
+                    string name = candidate.name.ToLowerInvariant();
+                    foreach (string keyword in nameKeywords)
+                    {
+                        if (name.Contains(keyword))
+                        {
+                            prefab = candidate;
+                            break;
+                        }
+                    }
+                    if (prefab != null) break;
+                }
+            }
+
+            if (prefab == null)
+            {
+                Plugin.Log.LogWarning($"Bundle loaded, but no prefab named '{prefabName}' " +
+                    $"(or containing: {string.Join("/", nameKeywords)}) found - using placeholder. " +
+                    $"Bundle contents: {string.Join(", ", _bundle.GetAllAssetNames())}");
+                return null;
+            }
+
+            GameObject instance = Object.Instantiate(prefab);
+            LogBounds(instance, prefab.name);
+            return instance;
+        }
+
+        private static void LogBounds(GameObject instance, string prefabName)
+        {
+            Renderer[] renderers = instance.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0)
+            {
+                Plugin.Log.LogWarning($"Bundle prefab '{prefabName}' has no renderers (invisible?).");
+                return;
+            }
+
+            Bounds bounds = renderers[0].bounds;
+            foreach (Renderer r in renderers) bounds.Encapsulate(r.bounds);
+            Plugin.Log.LogInfo($"Bundle prefab '{prefabName}' size: {bounds.size} m. " +
+                "(Zielgröße: Truhe ~1.0m breit, Terminal ~0.6m - sonst in Unity den Scale Factor anpassen.)");
         }
 
         private static GameObject CreatePart(Transform parent, string name, PrimitiveType type,

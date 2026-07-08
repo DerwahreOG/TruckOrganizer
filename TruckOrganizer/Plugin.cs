@@ -15,7 +15,7 @@ namespace TruckOrganizer
     {
         public const string Guid = "truckorganizer.storage";
         public const string Name = "TruckOrganizer";
-        public const string Version = "0.1.6";
+        public const string Version = "0.1.7";
 
         public static Plugin Instance { get; private set; }
         public static bool PatchesApplied { get; private set; }
