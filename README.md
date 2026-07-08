@@ -63,7 +63,7 @@ Terminal und Menü brauchen ihn alle Spieler.
 
 Testablauf (erst Singleplayer, dann Multiplayer):
 
-- Spiel starten → Log muss `TruckOrganizer v0.1.7 loaded.` zeigen.
+- Spiel starten → Log muss `TruckOrganizer v0.1.8 loaded.` zeigen.
 - Im Truck: Terminal neben dem Bildschirm mit Boot-Flackern. Position passt nicht?
   → `Terminal.PositionOffset` / `RotationOffset` in der Config justieren.
 - Im Shop einkaufen → Log zeigt `Moved purchase '...' into storage`, die Items

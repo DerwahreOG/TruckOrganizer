@@ -1,6 +1,6 @@
 {
   "name": "TruckOrganizer",
-  "version_number": "0.1.7",
+  "version_number": "0.1.8",
   "website_url": "https://github.com/DerwahreOG/TruckOrganizer",
   "description": "Storage chest at completed extraction points and a wall terminal in the truck. Shop purchases go into a shared, host-persisted storage.",
   "dependencies": [

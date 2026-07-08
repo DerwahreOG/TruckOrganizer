@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.8
+
+- Item-Symbole im Menü: dieselben Icons, die das Spiel in den
+  Inventar-Slots zeigt (aus den Item-Prefabs geladen, gecacht).
+- Maus-Relock nach Menü-Schließen deutlich beharrlicher (bis 10s
+  erzwungen, Spiel-Menüs wie das Esc-Menü werden respektiert).
+- Klick-Diagnose: Mausklicks bei offenem Menü werden ins Log
+  geschrieben, um Eingabeprobleme nachvollziehen zu können.
+
 ## 0.1.7
 
 - AssetBundle-Loader verbessert: sucht die Bundle-Datei auch im

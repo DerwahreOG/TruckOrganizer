@@ -45,9 +45,10 @@ namespace TruckOrganizer.Behaviours
             if (IsOpen)
             {
                 _closedFrame = Time.frameCount;
-                // Hand the cursor back to the game: force-lock long enough
-                // that the game's own cursor handling takes over again.
-                _relockUntil = Time.time + 1.5f;
+                // Hand the cursor back to the game: keep enforcing the lock
+                // for a while, because the game does not reliably re-lock on
+                // its own. Game-owned menus (unlockTimer) are respected.
+                _relockUntil = Time.time + 10f;
             }
             IsOpen = false;
             _source = null;
@@ -100,6 +101,13 @@ namespace TruckOrganizer.Behaviours
                 return;
             }
 
+            // Click diagnostics: shows in the log whether mouse input reaches
+            // the mod at all while the menu is open.
+            if (Input.GetMouseButtonDown(0))
+            {
+                Plugin.Log.LogInfo($"Menu click at {Input.mousePosition}, cursor lock: {Cursor.lockState}.");
+            }
+
             HandleKeyboard();
             HoldGameInput();
         }
@@ -114,24 +122,28 @@ namespace TruckOrganizer.Behaviours
             }
             else if (Time.time < _relockUntil)
             {
-                // Stop while another (game) menu is open, e.g. after Esc.
+                // Stop while a game-owned menu wants the cursor (e.g. Esc
+                // menu uses CursorManager.Unlock), or outside gameplay.
                 bool gameCursorWantsUnlock = false;
                 try
                 {
                     gameCursorWantsUnlock = CursorManager.instance != null &&
-                                            CursorManager.instance.unlockTimer > 0.5f;
+                                            CursorManager.instance.unlockTimer > 0.05f;
                 }
                 catch { /* manager not available */ }
 
-                if (!gameCursorWantsUnlock)
+                bool inGameplay = true;
+                try
+                {
+                    inGameplay = !SemiFunc.MenuLevel();
+                }
+                catch { /* keep true */ }
+
+                if (!gameCursorWantsUnlock && inGameplay &&
+                    Cursor.lockState != CursorLockMode.Locked)
                 {
                     Cursor.lockState = CursorLockMode.Locked;
                     Cursor.visible = false;
-                    try
-                    {
-                        if (CursorManager.instance != null) CursorManager.instance.unlockTimer = 0f;
-                    }
-                    catch { /* manager not available */ }
                 }
             }
         }
@@ -300,7 +312,12 @@ namespace TruckOrganizer.Behaviours
                 ? UITheme.RowSel
                 : (index % 2 == 0 ? UITheme.Row : UITheme.RowAlt);
 
-            GUILayout.BeginHorizontal(rowStyle, GUILayout.Height(32f));
+            GUILayout.BeginHorizontal(rowStyle, GUILayout.Height(34f));
+
+            // Same icon the game shows in the inventory slots.
+            Rect iconRect = GUILayoutUtility.GetRect(28f, 28f, GUILayout.Width(28f), GUILayout.Height(28f));
+            ItemIcons.Draw(iconRect, ItemIcons.Get(row.ItemName));
+            GUILayout.Space(8f);
 
             GUILayout.Label(StorageService.DisplayName(row.ItemName), UITheme.RowLabel,
                 GUILayout.ExpandWidth(true), GUILayout.Height(24f));
