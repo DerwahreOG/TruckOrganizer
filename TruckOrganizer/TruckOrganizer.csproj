@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>TruckOrganizer</AssemblyName>
+    <Product>TruckOrganizer</Product>
+    <Version>0.1.8</Version>
+    <Description>Persistent storage chest at the extraction point and a wall terminal in the truck for R.E.P.O.</Description>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <RestoreAdditionalProjectSources>
+      https://api.nuget.org/v3/index.json;
+      https://nuget.bepinex.dev/v3/index.json
+    </RestoreAdditionalProjectSources>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" IncludeAssets="compile" PrivateAssets="all" />
+    <PackageReference Include="R.E.P.O.GameLibs.Steam" Version="0.4.4-ngd.0" PrivateAssets="all" />
+    <PackageReference Include="UnityEngine.Modules" Version="2022.3.21" IncludeAssets="compile" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Deploy the built DLL into the game's plugin folder when GameDirectory is provided
+       via Directory.Repo.props (not committed, see README). -->
+  <Target Name="DeployToPlugins" AfterTargets="Build" Condition="'$(BepInExPluginDirectory)' != ''">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(BepInExPluginDirectory)" />
+  </Target>
+
+</Project>
